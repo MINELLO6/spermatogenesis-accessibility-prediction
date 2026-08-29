@@ -16,6 +16,7 @@ group. The locked held-out indices are not included because they reveal the
 mapping to the source data and are unnecessary for reviewing the methods.
 
 Large or restricted inputs should be obtained from the data owner or the source
-study rather than committed to GitHub. Do not commit raw sequences, response
-matrices, checkpoints, prediction arrays, credentials, or SSH configuration.
+study rather than committed to GitHub. The 22 final checkpoints are included in
+`weights/`; do not commit raw sequences, response matrices, exploratory
+checkpoints, prediction arrays, credentials, or SSH configuration.
 
