@@ -1,0 +1,21 @@
+"""Regression metrics used throughout the project."""
+
+import numpy as np
+
+
+def regression_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, object]:
+    y_true = np.asarray(y_true, dtype=np.float64)
+    y_pred = np.asarray(y_pred, dtype=np.float64)
+    if y_true.shape != y_pred.shape or y_true.ndim != 2:
+        raise ValueError("Expected matching two-dimensional target and prediction arrays")
+    residual_ss = np.square(y_true - y_pred).sum(axis=0)
+    total_ss = np.square(y_true - y_true.mean(axis=0)).sum(axis=0)
+    r2_bins = 1.0 - residual_ss / total_ss
+    mse = float(np.square(y_true - y_pred).mean())
+    return {
+        "mse": mse,
+        "rmse": float(np.sqrt(mse)),
+        "mean_r2": float(r2_bins.mean()),
+        "r2_bins": r2_bins.tolist(),
+    }
+

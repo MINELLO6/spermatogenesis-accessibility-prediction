@@ -1,0 +1,33 @@
+{
+  "method": "Poisson(1) cluster multiplier bootstrap",
+  "unit": "200-bp genomic overlap group",
+  "replicates": 2000,
+  "seed": 20260829,
+  "n_groups": 466432,
+  "comparisons": {
+    "raw_rc_minus_raw_no_rc": {
+      "mean_difference": 0.01993849118400791,
+      "ci95": [
+        0.014085600245439816,
+        0.02630507318628863
+      ],
+      "probability_positive": 1.0
+    },
+    "raw_rc_minus_frozen_nt": {
+      "mean_difference": 0.0760004629133423,
+      "ci95": [
+        0.06321677704274054,
+        0.08963836535211121
+      ],
+      "probability_positive": 1.0
+    },
+    "raw_rc_minus_motif": {
+      "mean_difference": 0.1676598379239705,
+      "ci95": [
+        0.14463893175250903,
+        0.19056563184996358
+      ],
+      "probability_positive": 1.0
+    }
+  }
+}

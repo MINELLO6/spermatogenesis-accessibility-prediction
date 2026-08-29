@@ -1,0 +1,10 @@
+{
+  "n_total": 4851460,
+  "n_groups": 4664315,
+  "n_development": 4366231,
+  "n_heldout_locked": 485229,
+  "development_matches_folds": true,
+  "group_overlap": 0,
+  "test_targets_inspected": false,
+  "split_source": "strict complement of union of folds.pkl validation indices"
+}

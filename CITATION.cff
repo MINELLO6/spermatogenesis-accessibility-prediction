@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite this repository and the associated dissertation."
+title: "Predicting Developmental Chromatin Accessibility from Local DNA Sequence"
+type: software
+authors:
+  - family-names: Jin
+    given-names: Cheng
+date-released: 2026-08-29
+
