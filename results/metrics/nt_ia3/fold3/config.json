@@ -1,0 +1,21 @@
+{
+  "fold": 2,
+  "epochs": 6,
+  "patience": 2,
+  "batch_size": 128,
+  "accum_steps": 8,
+  "lr": 0.003,
+  "max_train": 0,
+  "max_val": 0,
+  "output_root": "/root/autodl-tmp/nt_ia3",
+  "seed": 9302,
+  "train_n": 3492985,
+  "val_n": 873246,
+  "method": "IA3_key_value_feedforward_scaling",
+  "backbone_original_weights_frozen": true,
+  "head": "final_layer_attention_pooling",
+  "trainable_parameters": 368533,
+  "effective_batch_size": 1024,
+  "selection_metric": "development_fold_mean_bin_r2",
+  "heldout_accessed": false
+}

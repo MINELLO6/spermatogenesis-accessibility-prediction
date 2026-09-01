@@ -1,0 +1,6 @@
+{
+  "fold": 2,
+  "best_mean_r2": 0.3681297592610615,
+  "best_epoch": 3,
+  "heldout_accessed": false
+}

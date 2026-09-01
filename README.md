@@ -4,6 +4,11 @@ Reproducible code, compact results, and publication figures for comparing
 task-specific convolutional models, a frozen Nucleotide Transformer, and
 HOCOMOCO motif representations on mouse spermatogenesis accessibility profiles.
 
+The repository also contains a matched row-normalized Poisson experiment on
+960,329 temporally variable regions. After every 20-bin profile was rescaled to
+100 pseudo-counts, the raw-sequence CNN achieved shape R2 0.1958, compared with
+0.1086 for the dense motif CNN and 0.1003 for the dense motif Transformer.
+
 ## Main result
 
 On 485,229 locked held-out regions, the five-fold reverse-complement raw-sequence
@@ -70,6 +75,10 @@ script before running on another system.
 4. Evaluate equal-weight ensembles once on the locked held-out indices.
 5. Run the grouped bootstrap and generate final figures.
 6. Fit the full-development raw model for post hoc attribution only.
+
+The normalized-Poisson shape comparison can be reproduced with
+`scripts/training/train_shape_shared_trunk.py`; compact five-fold results are in
+`results/metrics/shape_normalized_poisson/summary.csv`.
 
 ## Interpretation caveat
 

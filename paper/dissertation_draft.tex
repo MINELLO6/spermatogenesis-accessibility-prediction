@@ -4,11 +4,23 @@
 \usepackage[T1]{fontenc}
 \usepackage{parskip}
 \usepackage{latexsym,amsmath,amssymb}
-\usepackage{natbib}
+\usepackage[round,authoryear]{natbib}
 \usepackage{times}
 \usepackage{zi4}
 \usepackage{booktabs}
 \usepackage[a4paper,left=3cm,right=3cm,top=3cm,bottom=3cm]{geometry}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  linktoc=all,
+  bookmarksopen=true,
+  bookmarksnumbered=true,
+  pdfstartview=FitH
+}
+\setcitestyle{authoryear,round,semicolon,aysep={,},yysep={;}}
+\renewcommand{\bibsection}{%
+  \section*{References}%
+  \addcontentsline{toc}{section}{References}%
+}
 \setlength{\emergencystretch}{3em}
 
 \begin{document}
@@ -52,7 +64,7 @@ Date:...................................
 
 \begin{abstract}
 
-Chromatin accessibility changes substantially during spermatogenesis, although the DNA sequence underlying each genomic region remains fixed. We investigated how much of this developmental programme can be predicted from a short local sequence and whether representations obtained by genomic language-model pretraining improve prediction over task-specific sequence learning. The data comprised 4,851,460 mouse genomic regions, each represented by a 201-bp sequence and a 20-dimensional chromatin-accessibility profile along spermatogenic pseudotime. To reduce leakage from nearby sequences, regions separated by at most 200 bp were assigned to the same group before a 90\% development and 10\% held-out test split; five-fold grouped cross-validation was then performed within the development set. We compared convolutional models trained directly on one-hot encoded DNA, a frozen 50-million-parameter Nucleotide Transformer followed by a trainable prediction head, and models based on HOCOMOCO motif annotations. On the locked held-out set, an equal-weight ensemble of five multi-scale dilated residual convolutional networks trained with reverse-complement augmentation obtained a mean per-bin $R^2$ of 0.611, compared with 0.591 without augmentation, 0.535 for the strongest frozen Nucleotide Transformer head and 0.443 for a motif transformer. Grouped bootstrap analysis estimated an augmentation gain of 0.020 (95\% interval 0.014--0.026). Prediction was weaker at the final pseudotime bins, suggesting that late accessibility may depend more strongly on cellular context or may be intrinsically harder to estimate. These findings show that local sequence contains substantial information about developmental chromatin accessibility, while frozen pretraining and known motif annotations retain only part of the predictive information.
+Chromatin accessibility changes substantially during spermatogenesis, although the DNA sequence underlying each genomic region remains fixed. We investigated how much of this developmental programme can be predicted from a short local sequence and whether representations obtained by genomic language-model pretraining improve prediction over task-specific sequence learning. The data comprised 4,851,460 mouse genomic regions, each represented by a 201-bp sequence and a 20-dimensional chromatin-accessibility profile along spermatogenic pseudotime. To reduce leakage from nearby sequences, regions separated by at most 200 bp were assigned to the same group before a 90\% development and 10\% held-out test split; five-fold grouped cross-validation was then performed within the development set. We compared convolutional models trained directly on one-hot encoded DNA, a frozen 50-million-parameter Nucleotide Transformer followed by a trainable prediction head, and models based on HOCOMOCO motif annotations. In the prespecified locked held-out comparison, an equal-weight ensemble of five multi-scale dilated residual convolutional networks trained with reverse-complement augmentation obtained a mean per-bin $R^2$ of 0.611, compared with 0.591 without augmentation, 0.535 for the strongest frozen Nucleotide Transformer head and 0.443 for a motif transformer. A final strand-invariant prediction formed by averaging the forward- and reverse-complement-oriented outputs increased the raw-sequence result to 0.613 in secondary evaluation. Grouped bootstrap analysis of the prespecified comparison estimated an augmentation gain of 0.020 (95\% interval 0.014--0.026). Prediction was weaker at the final pseudotime bins, suggesting that late accessibility may depend more strongly on cellular context or may be intrinsically harder to estimate. These findings show that local sequence contains substantial information about developmental chromatin accessibility, while frozen pretraining and known motif annotations retain only part of the predictive information.
 
 \end{abstract}
 \clearpage
@@ -67,8 +79,12 @@ I would like to thank [supervisor and collaborators] for their guidance and supp
 
 \tableofcontents
 \newpage
+\phantomsection
+\addcontentsline{toc}{section}{List of Figures}
 \listoffigures
 \newpage
+\phantomsection
+\addcontentsline{toc}{section}{List of Tables}
 \listoftables
 \clearpage
 
@@ -76,9 +92,13 @@ I would like to thank [supervisor and collaborators] for their guidance and supp
 
 \section{Introduction}
 
+\subsection{Biological motivation}
+
 Gene regulation changes substantially during cellular differentiation, allowing cells with the same underlying genome to acquire distinct molecular and functional states. Spermatogenesis is a particularly dynamic developmental process in which male germ cells progress through spermatogonial differentiation, meiosis, and post-meiotic development. Single-cell studies of mammalian testes have revealed extensive changes in gene expression and chromatin state throughout this process \citep{jung2019,agarwal2026}. More recently, joint profiling of RNA expression and chromatin accessibility from the same nuclei has enabled regulatory changes to be studied along a continuous spermatogenic pseudotime trajectory. In mouse germ cells, these data reveal tightly timed molecular changes during meiosis and demonstrate that regulatory activity can vary substantially across developmental progression \citep{agarwal2026}. Understanding these changes is important for characterising normal germ-cell development and regulatory processes that may be disrupted in abnormal meiosis and infertility.
 
 Chromatin accessibility is an important component of gene regulation because the accessibility of genomic DNA influences interactions between regulatory proteins and their potential binding sites. Assay for Transposase-Accessible Chromatin using sequencing (ATAC-seq) provides a genome-wide measure of chromatin accessibility by exploiting preferential insertion of the Tn5 transposase into accessible DNA \citep{buenrostro2013atac}. Accessibility at a genomic region can change considerably across cellular states even though the underlying DNA sequence at that region remains fixed. During mouse spermatogenesis, for example, chromatin opening at PRDM9-associated regions is highly localised in developmental time, with accessibility increasing during a restricted interval of early meiosis and subsequently declining \citep{agarwal2026}. The contrast between a static DNA sequence and a dynamic chromatin state motivates a central question in regulatory genomics: to what extent is the developmental trajectory of chromatin accessibility encoded in local DNA sequence?
+
+\subsection{Sequence representations}
 
 Local DNA sequence provides one possible source of information about chromatin accessibility. Transcription factors recognise characteristic sequence patterns, or motifs, and their binding can contribute to the establishment or maintenance of accessible regulatory regions \citep{vorontsov2024hocomoco,pampari2025chrombpnet}. Sequence alone, however, cannot fully specify regulatory activity. The same potential binding site may be active in one cellular state and inactive in another because transcription-factor abundance, chromatin context, cofactors, nucleosome organisation, and interactions among regulatory proteins also change through development. Regulatory activity may additionally depend on motif spacing, orientation and combinations rather than the presence of individual motifs \citep{jolma2015tfpairs,avsec2021bpnet}. Determining how accurately accessibility can be predicted from sequence therefore provides a way to quantify the contribution of local cis-regulatory information to a phenotype that is inherently dynamic.
 
@@ -88,13 +108,18 @@ A second approach is to use representations learned through large-scale self-sup
 
 Transcription-factor motifs provide a complementary and more interpretable representation. Position weight matrices describe transcription-factor sequence preferences, and HOCOMOCO v12 contains a curated core collection of 1,443 binding models derived from ChIP-seq and HT-SELEX experiments \citep{vorontsov2024hocomoco}. Comparing motif-based prediction with prediction from the complete sequence can indicate how much of the sequence-predictable signal is represented by known binding patterns. It also distinguishes a compact, biologically annotated representation from features learned directly by a neural network.
 
-In this study, we investigate the extent to which a 201-bp local DNA sequence predicts a 20-dimensional chromatin-accessibility profile across mouse spermatogenic pseudotime. We compare task-specific convolutional models, frozen representations from a pretrained Nucleotide Transformer, and explicit transcription-factor motif features. All approaches use common grouped data partitions so that nearby overlapping regions are not divided between training and evaluation sets. The analysis addresses three questions: how much of the accessibility trajectory is predictable from local sequence; whether genomic pretraining improves over direct task-specific learning; and how much predictive information is retained by known motif annotations.
+\subsection{Study design and contributions}
 
-These questions are related but not equivalent. Predicting accessibility at one time point may be possible from broad sequence properties such as GC content or promoter-like motifs. Predicting a complete ordered trajectory is more demanding because the model must distinguish regions that open early, remain accessible, open transiently, or become accessible only late in development. A useful model must therefore learn both the overall magnitude of a region's activity and changes in the relative shape of its profile, a distinction also used by base-resolution sequence-to-profile models \citep{avsec2021bpnet,pampari2025chrombpnet}. The 20-output formulation preserves this distinction, whereas reducing each region to a single summary would remove much of the developmental information of interest.
+For each genomic region, the prediction task maps one of three sequence-derived representations---the complete 201-bp sequence, a pretrained sequence embedding, or explicit motif annotations---to the same 20-bin accessibility trajectory. Using a common target and common grouped partitions makes the performance differences attributable to the representation and learning strategy rather than to different test regions. The work makes four main contributions:
 
-The comparison also separates three sources of inductive bias. A convolutional model assumes that local patterns can be detected across sequence positions and combined hierarchically. A genomic language model imports features learned from a much larger unlabelled sequence corpus. A motif model restricts attention to matches against a catalogue of previously characterised transcription-factor preferences. If the pretrained or motif representation were sufficient, a relatively small downstream head should approach the performance of a model trained from raw sequence. Conversely, a substantial advantage for end-to-end raw-sequence learning would indicate that the labelled data contain task-specific information not readily available in the fixed representations.
+\begin{enumerate}
+\item \textbf{Leakage-aware evaluation.} Nearby regions with overlapping or nearly identical sequence are kept in the same group, followed by five-fold development evaluation and a prespecified held-out comparison.
+\item \textbf{A task-specific sequence baseline.} A multi-scale residual convolutional model tests how much of the trajectory can be learned end to end from local DNA, with reverse-complement augmentation used to encode strand invariance.
+\item \textbf{Controlled evaluation of genomic pretraining.} Frozen Nucleotide Transformer representations, layer selection and IA3 adaptation separate the effects of representation depth, downstream pooling and limited task-specific adaptation.
+\item \textbf{Explicit motif and trajectory analysis.} Sparse motif hits and dense $10\times1{,}443$ motif-score matrices test how much signal is retained by known binding patterns, while magnitude--shape decomposition distinguishes how active a region is from when it is active.
+\end{enumerate}
 
-The objective of this work is predictive rather than causal. A high $R^2$ would show that sequence is statistically informative about developmental accessibility, but would not by itself demonstrate that every predictive base or motif has a causal regulatory effect. Correlated sequence features, genomic annotations and evolutionary history may all contribute to prediction. The models are therefore used first to quantify available sequence information and then to generate hypotheses about its biological basis.
+The last distinction is important because a model can estimate overall activity while smoothing or shifting a transient temporal response. The 20-output formulation therefore preserves the ordered profile rather than reducing each region to one number. The objective remains predictive rather than causal: a high $R^2$ shows that sequence is statistically informative, but experimental perturbation would still be required to establish that a predictive base or motif regulates accessibility.
 
 \section{Materials and methods}
 
@@ -118,35 +143,78 @@ The processed input also contained likelihood-ratio statistics and $p$-values de
 
 Nearby regions can have overlapping or nearly identical 201-bp sequences. A random row-level split would therefore allow closely related sequences to appear in both training and evaluation data and could overstate generalisation. Regions were first sorted by chromosome and median position. Consecutive regions on the same chromosome separated by at most 200 bp were assigned to the same group; a new group began when the chromosome changed or the distance exceeded 200 bp.
 
+This threshold was examined directly rather than chosen from sequence length alone. Among the 4,851,440 within-chromosome adjacent-region pairs, 191,593 (3.95\%) had centre-to-centre spacing below 201 bp and therefore produced overlapping 201-bp input windows. Because one region can belong to a short-spacing pair on either side, 377,342 of the 4,851,460 regions (7.78\%) participated in at least one such pair. The median adjacent spacing was 361 bp overall and 182.5 bp among pairs below 201 bp. Figure~\ref{fig:peakspacing} shows both the genome-wide distribution and the part that motivates grouping nearby regions.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{Figures/peak_spacing_distribution.pdf}
+\caption{Spacing between neighbouring peak centres after sorting regions by chromosome and median genomic position. \textbf{A}, genome-wide distribution on a logarithmic distance axis. \textbf{B}, detailed distribution for distances below 201 bp. The red dashed line denotes the distance at which two 201-bp windows cease to overlap. Percentages use two different denominators: 3.95\% refers to within-chromosome adjacent pairs, whereas 7.78\% refers to regions that participate in at least one such pair.}
+\label{fig:peakspacing}
+\end{figure}
+
 Groups, rather than individual rows, were then divided using the group-aware routines in scikit-learn \citep{pedregosa2011sklearn}. Ten per cent of all observations (485,229 regions) were reserved as a held-out test set using \texttt{GroupShuffleSplit} with random seed 42. The remaining 4,366,231 regions formed the development set. Five-fold \texttt{GroupKFold} cross-validation was conducted within the development set. Each fold contained approximately 3.49 million training regions and 873,246 validation regions. The same folds were used for every model comparison reported below. Model selection was based only on the development-set folds; the held-out test set was not used during exploratory model development.
 
 \subsection{Task-specific raw-sequence models}
 
 The principal task-specific model was a multi-scale one-dimensional residual convolutional network. Three parallel convolutional branches with kernel sizes 7, 15 and 31 each mapped the four-channel input to 64 feature maps. Their outputs were concatenated and projected to 128 channels by a $1\times1$ convolution. Four residual blocks with kernel size 3 and dilation rates 1, 2, 4 and 8 expanded the receptive field while preserving the sequence resolution. Global mean and maximum pooling were concatenated, followed by a 128-unit fully connected layer and a 20-unit linear output layer.
 
-The model was trained both without augmentation and with reverse-complement augmentation. In the latter setting, the orientation of each training sequence was randomly reversed and complemented, while validation sequences were evaluated in their original orientation. This augmentation encodes the expectation that a regulatory sequence should retain its information when represented on the opposite DNA strand, an invariance previously incorporated into genomic neural networks through augmentation or parameter sharing \citep{shrikumar2017rc}. A related attention-pooling variant and a ConvNeXt-style sequence model were examined as secondary architecture comparisons.
+The model was trained both without augmentation and with reverse-complement augmentation. In the latter setting, the orientation of each training sequence was randomly reversed and complemented. Checkpoint selection initially evaluated validation sequences in their recorded orientation. After training, the final strand-invariant predictor evaluated both orientations and took their arithmetic mean. For a sequence $x$, this test-time prediction was
+\[
+\widehat{y}_{\mathrm{RCavg}}(x)=\frac{1}{2}\left[f(x)+f\!\left(\operatorname{RC}(x)\right)\right].
+\]
+This augmentation and inference rule encode the expectation that a regulatory sequence should retain its information when represented on the opposite DNA strand, an invariance previously incorporated into genomic neural networks through augmentation or parameter sharing \citep{shrikumar2017rc}. A related attention-pooling variant and a ConvNeXt-style sequence model were examined as secondary architecture comparisons.
 
 Models minimised mean squared error across regions and pseudotime bins using Adam or AdamW optimisation \citep{kingma2015adam,loshchilov2019adamw}. Training was allowed to continue for at most 30 epochs and was stopped when validation loss failed to improve for five epochs. The state with the lowest validation mean squared error was retained. Random seeds were set separately for each fold.
 
 The multi-scale design was chosen to permit features of different widths without requiring a very deep network. The kernel-7 branch can respond to short core patterns, whereas the kernel-15 and kernel-31 branches can represent broader or composite features. Within the residual stack, increasing dilation expands the receptive field while limiting the number of parameters. The pooled representation combines an average summary, which reflects features distributed across the region, with a maximum summary, which preserves a strong local match. The architecture therefore accommodates both repeated weak evidence and a single high-scoring regulatory feature.
 
-Reverse-complement augmentation was applied independently within training batches. For a selected sequence, positions were reversed and the nucleotide channels were permuted A$\leftrightarrow$T and C$\leftrightarrow$G. The response remained unchanged. This procedure did not duplicate the stored dataset and did not alter validation data. It acted as a biologically motivated regulariser by discouraging dependence on the arbitrary strand in which a reference interval was recorded.
+Reverse-complement augmentation was applied independently within training batches. For a selected sequence, positions were reversed and the nucleotide channels were permuted A$\leftrightarrow$T and C$\leftrightarrow$G. The response remained unchanged. This procedure did not duplicate the stored dataset and acted as a biologically motivated regulariser by discouraging dependence on the arbitrary strand in which a reference interval was recorded. Random augmentation alone does not guarantee exact equality between $f(x)$ and $f\{\operatorname{RC}(x)\}$ in a finite trained network. Averaging the two predictions at inference therefore removes the arbitrary choice of orientation and reduces orientation-specific estimation noise. Because pseudotime is a property of the response rather than of DNA strand, the 20 output bins are not reversed before averaging.
+
+Figure~\ref{fig:rawarch} summarises the complete raw-sequence route, including the tensor dimensions, residual-block expansion and strand-averaged inference rule.
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=.94\textwidth,height=.78\textheight,keepaspectratio]{image.png}
+\caption{Task-specific raw-sequence architecture. A 201-bp sequence is one-hot encoded, processed by parallel convolutional branches with kernel widths 7, 15 and 31, projected to 128 channels and passed through residual blocks with dilation rates 1, 2, 4 and 8. Global mean and maximum summaries feed the regression head. The left-hand example follows the corresponding tensor transformations, while the lower part records the 20-bin output and reverse-complement averaging used at inference.}
+\label{fig:rawarch}
+\end{figure}
+\clearpage
 
 \subsection{Pretrained Nucleotide Transformer models}
 
-We used the 50-million-parameter multispecies Nucleotide Transformer v2 \citep{dallatorre2024nt}. The pretrained transformer was frozen throughout downstream training so that the comparison measured the transferability of its existing representation rather than full end-to-end fine-tuning. For each sequence, the final hidden states of non-special tokens formed a contextual token representation of dimension 512.
+We used the 50-million-parameter multispecies Nucleotide Transformer v2 \citep{dallatorre2024nt}. The pretrained transformer was frozen throughout downstream training so that the comparison measured the transferability of its existing representation rather than full end-to-end fine-tuning. For each sequence, the hidden states of non-special tokens formed contextual token representations of dimension 512. The principal locked comparison used the final transformer layer.
 
-Several trainable heads were assessed. The strongest completed five-fold model projected token embeddings to a lower-dimensional space, learned an attention-weighted pooled representation, concatenated it with global maximum pooling, and mapped the result to 20 outputs through a multilayer perceptron. An alternative dilated residual convolutional head and a small transformer head were also examined. Only the downstream head parameters were updated. The attention-pooling head was trained with AdamW at a learning rate of $3\times10^{-4}$ and weight decay $10^{-4}$, with gradient clipping and early stopping.
+Several trainable heads were assessed. The attention-pooling model projected token embeddings to a lower-dimensional space, learned an attention-weighted pooled representation, concatenated it with global maximum pooling, and mapped the result to 20 outputs through a multilayer perceptron. An alternative dilated residual convolutional head and a small transformer head were also examined. Only the downstream head parameters were updated. The attention-pooling head was trained with AdamW at a learning rate of $3\times10^{-4}$ and weight decay $10^{-4}$, with gradient clipping and early stopping.
 
 Freezing the backbone controlled the number of trainable parameters and made embedding extraction feasible at the scale of the dataset. It did, however, create an intentionally conservative transfer-learning setting. Gradients could change how token embeddings were pooled and mapped to accessibility, but could not change which sequence distinctions were represented by the Nucleotide Transformer itself. The resulting comparison asks whether an existing general-purpose genomic representation can be transferred efficiently, not whether the full pretrained network could outperform a smaller convolutional model after unrestricted fine-tuning.
 
 Special tokens and padding were excluded from pooling by an attention mask. The attention head first projected the 512-dimensional token states, assigned a learned scalar weight to each valid token, and formed a weighted mean. This representation was concatenated with a token-wise maximum before regression. The maximum component allowed a strong local feature to be retained even if its attention weight was modest, while the weighted component represented distributed context.
+
+After the locked model comparison, we performed a development-only layer probe to test whether the final hidden layer was the most transferable representation for this regression task. A single frozen backbone returned the embedding-layer output and all 12 transformer-layer outputs. Fourteen candidates were fitted in parallel: one attention-pooling head for each of layers 0--12 and one learned scalar mixture of transformer layers 1--12. Heads were cloned from the same initialisation, but each candidate had an independent optimiser, learning-rate scheduler, early-stopping state and checkpoint. The mixture weights were normalised by a softmax and learned jointly with its prediction head. All candidates used the original 20-bin response, mean squared error and the same five grouped development folds. Layer selection therefore used no information from the locked held-out set.
+
+The learned layer mixture can be written as $H=\sum_{l=1}^{12}\alpha_l H_l$, where $H_l$ is the token representation from layer $l$ and $\alpha_l=\exp(a_l)/\sum_j\exp(a_j)$. This operation does not alter the pretrained transformer. Instead, it learns which representational depths should be exposed to the downstream head. Earlier and intermediate layers may retain information that is transformed or deemphasised near the final pretraining layer, consistent with the layer-dependent transfer reported for the Nucleotide Transformer \citep{dallatorre2024nt}. A scalar mixture can therefore recover useful intermediate information without selecting a single layer in advance or introducing a high-capacity feature combiner.
+
+
+
+We also tested IA3 as a parameter-efficient adaptation of the pretrained model \citep{liu2022ia3}. The original embedding and transformer weight matrices remained frozen, but learned vectors multiplicatively rescaled the key and value channels of self-attention and the intermediate channels of each feed-forward block. In simplified form, the adapted activations were $K'=K\odot s_K$, $V'=V\odot s_V$ and $F'=F\odot s_F$. Unlike a new prediction head, these gates can change which existing channels are propagated within every transformer layer; unlike full fine-tuning, they add only one-dimensional scale vectors rather than updating the large pretrained matrices. The IA3 model used the final transformer layer followed by the same attention-weighted mean, token-wise maximum and regression head, giving 368,533 trainable parameters while retaining the frozen 50-million-parameter backbone. It was trained on the five grouped development folds with the raw 20-bin target, mean squared error, AdamW at a learning rate of $3\times10^{-3}$, an effective batch size of 1,024, at most six epochs and patience two. Checkpoints were selected by validation mean per-bin $R^2$; the held-out responses were not accessed during this training or selection stage.
+
+Figure~\ref{fig:ntarch} shows how the same token sequence supports the final-layer comparison, the development-only layer probe and the learned layer mixture without duplicating the frozen backbone.
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=.94\textwidth,height=.78\textheight,keepaspectratio]{image2.png}
+\caption{Frozen Nucleotide Transformer architecture. The 201-bp input is converted to overlapping 6-mer tokens and passed through the frozen 12-block NT-v2-50M backbone. The resulting hidden-state stack supports three alternative selections: the final layer, one individually probed layer or a learned scalar mixture. Selected token states are projected to 256 dimensions, summarised by learned attention pooling and token-wise maximum pooling, concatenated and mapped to the 20-bin accessibility prediction by a trainable multilayer perceptron. Blue modules are frozen and ochre modules are trainable.}
+\label{fig:ntarch}
+\end{figure}
+\clearpage
 
 \subsection{Motif representations}
 
 Motif hits were based on the 1,443 HOCOMOCO v12 core binding models \citep{vorontsov2024hocomoco}. Each hit was represented by a motif identifier, a binned position within the 201-bp region, and a match score. Position was divided into ten bins, retaining coarse spatial information while avoiding a very large dense position-by-motif representation. Because motif hits were sparse, they were stored in compressed sparse-row form and truncated or padded only when required for batching.
 
 We compared simple summaries of motif presence or score with neural set and transformer models. The five-fold motif transformer embedded motif identity, position and score, allowed interactions among hits, and predicted the 20 accessibility values. Additional motif architectures were screened on the first fold and, in some cases, on the $p<0.001$ subset. These screens were used to assess whether greater architectural complexity produced a material improvement, but were not treated as final five-fold comparisons.
+
+As a capacity-controlled baseline for the dense motif representation, a multi-output linear model received exactly the same $10\times1{,}443$ score matrix as the nonlinear dense encoder. The matrix was flattened to 14,430 predictors and mapped directly to 20 outputs by a single affine transformation. No raw sequence, genomic coordinate, GC content, region annotation or separately computed presence indicator was added. This is the appropriate linear comparator for the dense motif models because it changes only the function class while holding the input information, grouped folds, target scaling and evaluation metrics fixed. A position-agnostic $1\times1{,}443$ score summary was retained as a secondary ablation rather than substituted for the principal baseline.
 
 The sparse motif representation offers two advantages. It reduces a 201-base sequence to events with an explicit biological label, and it allows the model to test whether approximate motif position contributes beyond motif presence. Its disadvantages are equally important. A motif absent from the catalogue cannot be recovered downstream, scanning thresholds turn continuous sequence evidence into a selected list of hits, and the positional-independence assumption of a position weight matrix can miss multibase dependencies that contribute to binding specificity \citep{yang2015dnashape,jolma2015tfpairs}. The motif experiment should therefore be understood as a test of how much prediction can be achieved with known motif annotations, rather than a test of whether transcription factors participate in the biological process.
 
@@ -167,23 +235,40 @@ The dense motif encoder projected the 1,443 scores to 128 features at each posit
 
 Two count-aware objectives were compared. The direct Poisson model produced 20 non-negative rates $\widehat\lambda_{it}=\operatorname{softplus}(a_{it})$ and minimised the Poisson negative log-likelihood up to constants. The balanced factorised model used a scalar magnitude head $\widehat M_i=\operatorname{softplus}(m_i)$ and a softmax shape head, with $\widehat\lambda_{it}=\widehat M_i\widehat q_{it}$. Its loss added a scaled Poisson loss for total magnitude to the equal-region shape cross-entropy. This separates total activity from temporal allocation in the same manner as the count--profile distinction used in BPNet-derived models \citep{avsec2021bpnet,pampari2025chrombpnet}.
 
+We additionally implemented the literal row-normalised Poisson formulation suggested for temporal shape. Each observed profile was converted to 100 pseudo-counts,
+\[
+c_{it}=100q_{it}=100\frac{y_{it}}{\sum_s y_{is}},
+\]
+and the model produced unconstrained positive rates $\widehat\lambda_{it}=\operatorname{softplus}(a_{it})$. Omitting terms independent of the model, the loss was
+\[
+\mathcal L_{\mathrm{NP}}
+=\frac{1}{n}\sum_i\sum_{t=1}^{20}
+\left(\widehat\lambda_{it}-c_{it}\log\widehat\lambda_{it}\right)/100.
+\]
+The predicted rate total was learned rather than imposed. If both the observed and predicted totals are fixed at 100, the first term is constant and the loss reduces to equal-region cross-entropy up to constants. The free-total version therefore tested whether an explicitly Poisson parameterisation changed optimisation while retaining equal contribution from every region. We applied this objective to the raw-sequence CNN, the dense motif CNN with and without position, the dense motif Transformer, and exact-input linear baselines, using the same 960,329 regions and grouped five-fold partitions. All nonlinear hidden layers used Softplus in this matched comparison.
+
 Shape was evaluated independently of magnitude using mean per-bin $R^2$ on $q$, the mean within-region Pearson correlation, Jensen--Shannon divergence, one-dimensional Wasserstein distance in pseudotime bins, absolute centre-of-mass error, peak-bin absolute error and exact peak-bin accuracy. Lower values are preferable for the four distance or error measures. Magnitude $R^2$ and reconstructed count-matrix $R^2$ are reported separately and are not treated as shape metrics.
 
-Figure~\ref{fig:architectures} shows the tensor transformations used by the leading raw-sequence and sparse motif models together with their predictions for one locked held-out region. The raw model retained the complete base-level input, whereas the motif model replaced it with a selected set of biologically annotated events. A second exploratory representation retained the complete $10\times1{,}443$ position-by-motif score matrix. For magnitude--shape experiments, a shared matrix encoder fed a non-negative scalar magnitude head and a softmax shape head, producing rates $\widehat\lambda_{it}=\widehat M_i\widehat q_{it}$ (Figure~\ref{fig:factorised}). This factorisation separated prediction of total accessibility from prediction of its temporal allocation and followed the count--profile distinction used in BPNet-derived models \citep{avsec2021bpnet,pampari2025chrombpnet}.
+Figure~\ref{fig:motifarch} places the sparse motif-hit Transformer and the independent dense magnitude--shape encoder in one comparison, making clear that both are motif-only routes but operate on different representations.
 
 \begin{figure}[p]
 \centering
-\includegraphics[width=\textwidth]{Figures/architecture_raw_and_sparse_motif_with_example.pdf}
-\caption{Architectures of the principal raw-sequence and sparse motif models. Tensor dimensions and the displayed DNA, motif-hit tokens and 20-bin profiles are taken from a real locked held-out region. The example is illustrative and was not selected to estimate model performance.}
-\label{fig:architectures}
+\includegraphics[width=\textwidth,height=.62\textheight,keepaspectratio]{image3.png}
+\caption{Motif-only architectures. \textbf{C1}, the sparse route represents each retained hit by motif identity, coarse position and continuous score, adds a learned region token, and applies four self-attention blocks before concatenating region-token, masked-mean and masked-maximum summaries for 20-bin regression. \textbf{C2}, the independent dense route receives the complete $10\times1{,}443$ score matrix, projects each position-specific motif vector, applies dilated residual convolutions across the ten position bins, and uses separate magnitude and shape heads. Their outputs are recombined as $\widehat\lambda_{it}=\widehat M_i\widehat q_{it}$.}
+\label{fig:motifarch}
 \end{figure}
+\clearpage
 
-\begin{figure}[p]
-\centering
-\includegraphics[width=\textwidth]{Figures/architecture_dense_motif_magnitude_shape_with_example.pdf}
-\caption{Exploratory dense motif matrix and magnitude--shape factorisation. The input contains only the $10\times1{,}443$ motif-score matrix. A shared encoder produces total magnitude $M$ and a row-normalised temporal composition $q$, which are recombined into 20 non-negative rates. The heat map and output profile are from the same held-out example used in Figure~\ref{fig:architectures}.}
-\label{fig:factorised}
-\end{figure}
+\subsection{Overall prediction workflow}
+
+Although their feature extractors differed, all models followed the same region-level pipeline:
+
+\begin{enumerate}
+\item \textbf{Construct the input.} The raw model received a $4\times201$ one-hot sequence; the pretrained model tokenised the same sequence; and motif-only models received either a variable set of $(\text{identity},\text{position},\text{score})$ hits or the complete $10\times1{,}443$ score matrix.
+\item \textbf{Encode and summarise the region.} A convolutional network, pretrained transformer or motif encoder converted the input into local features. Mean, maximum or learned attention pooling then produced a fixed-length representation of the complete region.
+\item \textbf{Predict the trajectory.} The principal models mapped the region representation directly to $\widehat{\mathbf y}_i\in\mathbb R^{20}$. Shape experiments instead predicted a non-negative magnitude $\widehat M_i$ and a normalised temporal composition $\widehat{\mathbf q}_i$, then reconstructed the rates as $\widehat\lambda_{it}=\widehat M_i\widehat q_{it}$.
+\item \textbf{Evaluate on common partitions.} Model selection used grouped development folds. Only the prespecified averages of five fold-model predictions were used for the primary held-out comparison; later layer, IA3 and target-decomposition analyses are labelled as secondary or post hoc.
+\end{enumerate}
 
 \subsection{Implementation and model-selection protocol}
 
@@ -227,9 +312,13 @@ To compare what the models predicted well, we calculated the intersections and J
 
 \section{Results}
 
+The results are reported in three levels. First, the prespecified held-out comparison answers the main question using identical genomic regions and one aggregation rule for every model. Second, complete five-fold development results show whether differences were consistent across grouped partitions and across pseudotime bins. Third, attribution, magnitude--shape, layer-selection, IA3 and architecture experiments diagnose why the models differed. These later analyses are labelled as secondary or post hoc where appropriate; results obtained with different region filters, targets or fold coverage are not placed in the same numerical ranking.
+
 \subsection{Locked held-out evaluation confirmed the model ordering}
 
-The prespecified final comparison used 485,229 regions belonging to 466,432 genomic overlap groups that had not contributed to model selection. The reverse-complement raw-sequence ensemble achieved the strongest performance, with a mean per-bin $R^2$ of 0.611 and an RMSE of 43.37 (Table~\ref{tab:test}). The corresponding unaugmented ensemble achieved $R^2=0.591$, the frozen Nucleotide Transformer attention-pooling ensemble achieved 0.535, and the motif transformer ensemble achieved 0.443. Thus, the ordering observed during development was reproduced on the untouched groups (Figure~\ref{fig:testmodels}).
+The prespecified final comparison used 485,229 regions belonging to 466,432 genomic overlap groups that had not contributed to model selection. The forward-orientation reverse-complement-trained raw-sequence ensemble achieved the strongest performance, with a mean per-bin $R^2$ of 0.611 and an RMSE of 43.37 (Table~\ref{tab:test}). The corresponding unaugmented ensemble achieved $R^2=0.591$, the frozen Nucleotide Transformer attention-pooling ensemble achieved 0.535, and the motif transformer ensemble achieved 0.443. Thus, the ordering observed during development was reproduced on the untouched groups (Figure~\ref{fig:testmodels}).
+
+The strand-averaging rule was first checked across the five grouped development folds. It improved every fold, increasing mean $R^2$ from 0.5537 to 0.5645 and reducing mean RMSE from 48.68 to 47.99. We therefore use the equal mean of forward and reverse-complement predictions as the final inference rule. Applied descriptively to the previously evaluated held-out set, averaging increased $R^2$ from 0.6111 to 0.6130 and reduced RMSE from 43.37 to 43.24. The improvement is small because augmentation had already made the two orientations similar, but its direction was consistent with the development analysis. The 0.613 result is reported as secondary rather than prespecified because this inference comparison was completed after the original locked evaluation.
 
 \begin{table}[htbp]
 \centering
@@ -239,18 +328,23 @@ The prespecified final comparison used 485,229 regions belonging to 466,432 geno
 \toprule
 Model & Mean per-bin $R^2$ & RMSE \\
 \midrule
-Raw ResCNN + reverse complement & 0.611 & 43.37 \\
+Raw ResCNN + reverse complement, forward only & 0.611 & 43.37 \\
+Raw ResCNN + reverse complement, strand average$^{a}$ & \textbf{0.613} & \textbf{43.24} \\
 Raw ResCNN & 0.591 & 44.60 \\
 Frozen Nucleotide Transformer + attention pooling & 0.535 & 48.01 \\
 HOCOMOCO motif transformer & 0.443 & 52.81 \\
 \bottomrule
 \end{tabular}
+\\[2pt]
+\begin{minipage}{.88\textwidth}\footnotesize
+$^{a}$Final inference rule selected from the grouped development folds; its held-out value is a secondary post-hoc evaluation. The other rows constitute the prespecified comparison.
+\end{minipage}
 \end{table}
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=.82\textwidth]{Figures/heldout_model_performance.pdf}
-\caption{Mean per-bin $R^2$ and RMSE on the locked held-out regions. Error bars show grouped bootstrap intervals.}
+\caption{Prespecified forward-orientation ensemble comparison on the locked held-out regions. Error bars show grouped bootstrap intervals. The subsequently selected forward--reverse-complement average is reported separately in Table~\ref{tab:test}.}
 \label{fig:testmodels}
 \end{figure}
 
@@ -333,6 +427,33 @@ Removing motif position reduced shape $R^2$ from 0.1080 to 0.1033 and Pearson co
 
 The poor shape result of the direct Poisson model did not mean that it failed to predict total activity. Its scalar magnitude $R^2$ was 0.4484 (SD 0.0737), and the factorised model obtained 0.4519 (SD 0.0744); the latter reconstructed the count matrix with a mean per-bin $R^2$ of 0.3902 (SD 0.0648). The objectives therefore favoured different aspects of the response. A likelihood dominated by absolute counts could recover magnitude while giving insufficient weight to differences in relative temporal allocation. Adding an explicit equal-region shape term recovered much of that information, but remained below training exclusively on composition.
 
+\subsection{Row-normalised Poisson modelling enabled a matched shape comparison}
+
+Normalising every observed trajectory to 100 pseudo-counts before Poisson training substantially changed what the likelihood emphasised (Table~\ref{tab:normalisedpoisson}). The raw-sequence CNN gave the strongest shape prediction, with mean per-bin $R^2=0.1958$ (SD 0.0058), mean within-region Pearson correlation 0.5352 (SD 0.0040), and JS divergence 0.04425. Its exact-input linear baseline achieved only $R^2=0.0324$, showing that the raw-sequence result was not explained by a linear nucleotide-position effect.
+
+Among motif-only models, the dense CNN obtained $R^2=0.1086$ and Pearson correlation 0.4606. Removing motif position reduced $R^2$ to 0.1032, whereas replacing the positional CNN with a Transformer produced 0.1003. A linear mapping from the complete $10\times1{,}443$ score matrix retained non-zero shape information but was lower at 0.0722. The ordering indicates that nonlinear modelling contributed to both raw and motif prediction, while the gap between the raw CNN and all motif models remained larger than the differences among motif encoders.
+
+\begin{table}[htbp]
+\centering
+\caption{Five-fold temporal-shape prediction after normalising every $p<0.001$ trajectory to 100 pseudo-counts and fitting Poisson rates. Values are fold means with sample SD in parentheses. Lower JS divergence is preferable. Linear baselines receive the exact flattened input used by the corresponding nonlinear model.}
+\label{tab:normalisedpoisson}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Input and model & Shape $R^2$ & Pearson & JS divergence \\
+\midrule
+Raw sequence, CNN & \textbf{.1958 (.0058)} & \textbf{.5352 (.0040)} & \textbf{.04425 (.00019)} \\
+Raw sequence, linear & .0324 (.0002) & .3774 (.0007) & .05476 (.00008) \\
+Dense motif matrix, CNN & .1086 (.0007) & .4606 (.0015) & .04937 (.00010) \\
+Dense motif matrix, CNN without position & .1032 (.0006) & .4564 (.0010) & .04971 (.00003) \\
+Dense motif matrix, Transformer & .1003 (.0013) & .4547 (.0014) & .04985 (.00008) \\
+Dense motif matrix, linear & .0722 (.0002) & .4343 (.0008) & .05182 (.00008) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The fitted pseudo-count totals remained close to the target scale: their fold-averaged means were 100.49 for the raw CNN, 99.69 for the motif CNN and 98.97 for the motif Transformer. Consequently, the free-total Poisson formulation behaved similarly to direct composition training for the motif CNN, which achieved $R^2=0.1080$ under equal-region cross-entropy. This agreement is expected from the algebraic equivalence obtained when both totals equal 100; the Poisson experiment nevertheless provides a direct implementation of the count-model recommendation rather than merely renaming a cross-entropy objective.
+
 \subsection{Greater dense-motif encoder capacity did not improve magnitude prediction}
 
 The standard dense motif CNN achieved a five-fold mean $R^2$ of 0.4026 (SD 0.0686) and a development-set out-of-fold $R^2$ of 0.3908. Increasing the initial projection from 128 to 512 features produced an almost identical mean of 0.4025 (SD 0.0691) and out-of-fold value of 0.3906. Applying a full 1,443-channel convolution before reduction was slightly weaker, at 0.3966 (SD 0.0693) and 0.3847 out of fold. Removing position reduced the corresponding mean from 0.4026 to 0.3985 and the out-of-fold value from 0.3908 to 0.3862. Full results are given in Appendix Table~\ref{tab:densemagnitude}.
@@ -341,13 +462,13 @@ These comparisons used the same grouped folds, target standardisation, effective
 
 \subsection{Local sequence predicted a substantial component of accessibility}
 
-All principal models achieved positive mean $R^2$ in every development-set fold, showing that local sequence contained reproducible information about accessibility across pseudotime. The unaugmented multi-scale raw-sequence convolutional model obtained a five-fold mean $R^2$ of 0.528 (SD 0.092). Reverse-complement augmentation improved this to 0.554 (SD 0.085) and reduced mean RMSE from 50.26 to 48.68 (Table~\ref{tab:cv}). The improvement was modest relative to the total fold-to-fold variation but was observed in the aggregate without adding external information.
+All principal models achieved positive mean $R^2$ in every development-set fold, showing that local sequence contained reproducible information about accessibility across pseudotime. The unaugmented multi-scale raw-sequence convolutional model obtained a five-fold mean $R^2$ of 0.528 (SD 0.092). Reverse-complement augmentation improved the forward-orientation evaluation to 0.554 (SD 0.085) and reduced mean RMSE from 50.26 to 48.68. Averaging forward and reverse-complement predictions increased the final five-fold result to 0.564 (SD 0.087) and reduced RMSE to 47.99 (Table~\ref{tab:cv}). The improvement was modest relative to the total fold-to-fold variation but occurred without adding external information.
 
 The raw-sequence model showed greater performance in the middle of the trajectory than in the final bins. Across the folds, the final three outputs consistently had lower $R^2$ than most earlier and middle outputs. This pattern was also visible for the other model classes, indicating that it was not specific to one architecture. Possible explanations include lower signal-to-noise ratio at late pseudotime, reduced variation across regions, or a greater contribution from trans-regulatory and chromatin-context effects.
 
 The improvement from reverse-complement augmentation was distributed across the trajectory. Mean $R^2$ increased from 0.555 to 0.584 in bin 1, from 0.578 to 0.609 in bin 6, and from 0.363 to 0.378 in bin 20. The absolute gain was therefore not restricted to the bins with the highest baseline performance. Because the augmentation changes no biological label and adds no external annotation, this result indicates that strand-consistent regularisation improved the use of the existing sequence information.
 
-Fold-to-fold variation was substantial for every raw-sequence architecture. For the augmented model, fold-specific mean $R^2$ values were 0.517, 0.421, 0.617, 0.612 and 0.602. The second fold was consistently the most difficult across model classes, whereas folds 3--5 generally produced stronger results. This concordance suggests that variation primarily reflected the held-out genomic groups rather than unstable optimisation of one model. Reporting only the average would conceal this heterogeneity and overstate the precision of small architectural differences.
+Fold-to-fold variation was substantial for every raw-sequence architecture. For the augmented model evaluated in the recorded orientation, fold-specific mean $R^2$ values were 0.517, 0.421, 0.617, 0.612 and 0.602; strand averaging increased these to 0.532, 0.426, 0.629, 0.623 and 0.613. The second fold was consistently the most difficult across model classes, whereas folds 3--5 generally produced stronger results. This concordance suggests that variation primarily reflected the held-out genomic groups rather than unstable optimisation of one model. Reporting only the average would conceal this heterogeneity and overstate the precision of small architectural differences.
 
 \begin{table}[htb]
 \centering
@@ -358,7 +479,8 @@ Fold-to-fold variation was substantial for every raw-sequence architecture. For 
 Model & Mean per-bin $R^2$ & RMSE \\
 \midrule
 Raw multi-scale ResCNN & 0.528 (0.092) & 50.26 (8.95) \\
-Raw multi-scale ResCNN + RC & \textbf{0.554 (0.085)} & \textbf{48.68 (8.52)} \\
+Raw multi-scale ResCNN + RC, forward only & 0.554 (0.085) & 48.68 (8.52) \\
+Raw multi-scale ResCNN + RC, strand average & \textbf{0.564 (0.087)} & \textbf{47.99 (8.66)} \\
 Raw ResCNN + RC + attention & 0.550 (0.088) & 48.94 (8.69) \\
 ConvNeXt-style raw sequence & 0.520 (0.088) & 50.56 (8.78) \\
 Frozen NT + attention pooling & 0.473 (0.081) & 53.53 (8.22) \\
@@ -376,7 +498,8 @@ Motif transformer & 0.386 (0.069) & 58.23 (7.76) \\
 Model & Fold 1 & Fold 2 & Fold 3 & Fold 4 & Fold 5 \\
 \midrule
 Raw ResCNN & 0.490 & 0.384 & 0.602 & 0.576 & 0.589 \\
-Raw ResCNN + RC & 0.517 & 0.421 & 0.617 & 0.612 & 0.602 \\
+Raw ResCNN + RC, forward only & 0.517 & 0.421 & 0.617 & 0.612 & 0.602 \\
+Raw ResCNN + RC, strand average & 0.532 & 0.426 & 0.629 & 0.623 & 0.613 \\
 Raw ResCNN + RC + attention & 0.518 & 0.408 & 0.605 & 0.607 & 0.610 \\
 Frozen NT + attention pooling & 0.434 & 0.349 & 0.522 & 0.535 & 0.527 \\
 Motif transformer & 0.370 & 0.272 & 0.434 & 0.435 & 0.421 \\
@@ -413,7 +536,7 @@ Motif & .410 & .407 & .406 & .403 & .404 & .393 & .372 & .306 & .252 & .273 \\
 
 \subsection{Task-specific learning outperformed frozen genomic pretraining}
 
-The strongest completed five-fold Nucleotide Transformer model, using frozen embeddings and an attention-pooling head, obtained a mean $R^2$ of 0.473 (SD 0.081). The raw-sequence model with reverse-complement augmentation was higher by 0.080 in absolute $R^2$, or approximately 17\% relative to the Nucleotide Transformer result. Its RMSE was also lower by 4.85 units. A simpler Nucleotide Transformer head performed less well, supporting the use of attention pooling but not closing the gap to direct sequence learning.
+The strongest completed prespecified five-fold Nucleotide Transformer model, using frozen embeddings and an attention-pooling head, obtained a mean $R^2$ of 0.473 (SD 0.081). The forward-only raw-sequence model with reverse-complement augmentation was higher by 0.080 in absolute $R^2$; applying the final strand average increased this descriptive gap to approximately 0.091. A simpler Nucleotide Transformer head performed less well, supporting the use of attention pooling but not closing the gap to direct sequence learning.
 
 This comparison does not imply that pretraining contained no useful regulatory information. The frozen model explained nearly half of the variance on average despite receiving no task-specific updates to its transformer backbone. The result instead indicates that its transferable representation, under the present frozen-feature protocol, was less effective than features learned directly from millions of labelled accessibility regions. Fine-tuning the pretrained backbone could lead to a different comparison, but would require substantially greater computation and a careful control of model capacity.
 
@@ -421,9 +544,54 @@ The fold-specific results reinforce this interpretation. In the difficult second
 
 The comparison also illustrates that downstream-head design matters within a frozen representation. Attention pooling improved on the simpler frozen Nucleotide Transformer configuration, but the improvement was insufficient to reach the raw-sequence model. This suggests that pooling was one limitation, while representational mismatch remained another. A general genomic representation may encode conservation, sequence composition and broad functional properties without preserving every local distinction needed to predict this particular continuous trajectory.
 
+\subsection{Intermediate Nucleotide Transformer layers transferred better than the final layer}
+
+The subsequent layer probe showed that the final transformer layer was not the strongest frozen representation on the development folds (Table~\ref{tab:ntlayers}). A learned mixture of layers 1--12 obtained a mean per-bin $R^2$ of 0.4948 (SD 0.0829), compared with 0.4744 (SD 0.0738) for layer 12. The corresponding improvement was 0.0205 in absolute $R^2$. A single intermediate representation, layer 6, was almost indistinguishable from the learned mixture, with a mean $R^2$ of 0.4930 (SD 0.0797). Layer 10 was slightly lower at 0.4906 (SD 0.0801), but remained above the final-layer representation.
+
+\begin{table}[htbp]
+\centering
+\caption{Development-only five-fold layer probe for the frozen Nucleotide Transformer. Values are mean per-bin $R^2$ on each grouped validation fold. Mean and sample SD were calculated across the five folds. The locked held-out set was not used in this analysis.}
+\label{tab:ntlayers}
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Representation & Fold 1 & Fold 2 & Fold 3 & Fold 4 & Fold 5 & Mean (SD) \\
+\midrule
+Learned mixture, layers 1--12 & .4626 & .3630 & .5544 & .5434 & .5508 & \textbf{.4948 (.0829)} \\
+Layer 6 & .4603 & .3670 & .5490 & .5491 & .5398 & .4930 (.0797) \\
+Layer 10 & .4596 & .3630 & .5416 & .5466 & .5423 & .4906 (.0801) \\
+Layer 12 & .4428 & .3583 & .5248 & .5274 & .5187 & .4744 (.0738) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The difference between the learned mixture and layer 6 was only 0.0018, substantially smaller than the fold-to-fold variation. The mixture was higher in folds 1, 3 and 5, whereas layer 6 was higher in folds 2 and 4. The experiment therefore supports a broad conclusion that intermediate information transferred better than the final-layer representation, but it does not establish a practically important advantage of learned mixing over selecting layer 6. We retained the mixture as the primary representation for subsequent development experiments and layer 6 as a simpler comparison. Because this analysis followed the locked comparison, its development score was not substituted for the held-out result in Table~\ref{tab:test}.
+
+Parameter-efficient adaptation produced a further, modest development-fold improvement. The IA3 model obtained a five-fold mean $R^2$ of 0.5088 (SD 0.0865), compared with 0.4948 (SD 0.0829) for the learned frozen-layer mixture and 0.4744 (SD 0.0738) for the frozen final layer. IA3 was higher than the mixture by 0.0139 in mean development $R^2$, but its fold-to-fold SD was more than six times this difference. The result therefore supports the claim that adapting internal pretrained channels can help, but not a strong claim that IA3 is uniformly superior to selecting a better frozen representation.
+
+For descriptive follow-up, the five fold-specific predictors from each refinement were applied to the previously used held-out set and their predictions were averaged region by region before calculating the metrics (Table~\ref{tab:ntposthoc}). The learned frozen-layer mixture achieved held-out $R^2=0.5591$ and IA3 achieved 0.5617, improving on the prespecified frozen final-layer model by 0.0240 and 0.0266, respectively. Their difference was only 0.0027. Both remained below the final strand-averaged raw-sequence ensemble ($R^2=0.6130$), by 0.0539 for the mixture and 0.0513 for IA3. Because the refinements and the raw-sequence test-time strand average were evaluated after the original held-out comparison had been examined, these evaluations are secondary and post hoc: they describe whether development-fold gains transferred to the same test regions, but do not constitute a second independent confirmation or alter the prespecified ranking in Table~\ref{tab:test}.
+
+\begin{table}[htbp]
+\centering
+\caption{Nucleotide Transformer refinements on grouped development folds and in secondary post-hoc evaluation on the previously used held-out set. Held-out predictions are equal-weight averages of the five fold models; the table does not average five separately calculated held-out $R^2$ values. The first two rows were part of the prespecified comparison, whereas the layer mixture and IA3 rows were evaluated after that comparison.}
+\label{tab:ntposthoc}
+\small
+\begin{tabular}{lrrrl}
+\toprule
+Model & Development $R^2$ (SD) & Held-out $R^2$ & Held-out RMSE & Status \\
+\midrule
+Raw CNN, RC, forward only & .554 (.085) & .6111 & 43.37 & Prespecified \\
+Raw CNN, RC, strand average & \textbf{.564 (.087)} & \textbf{.6130} & \textbf{43.24} & Post hoc \\
+Frozen NT, final-layer pooling & .473 (.081) & .5351 & 48.01 & Prespecified \\
+Frozen NT, learned layer mixture & .4948 (.0829) & .5591 & 46.60 & Post hoc \\
+NT with IA3, final-layer pooling & \textbf{.5088 (.0865)} & \textbf{.5617} & 46.48 & Post hoc \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Known motifs retained only part of the sequence signal}
 
-The five-fold motif transformer obtained a mean $R^2$ of 0.386 (SD 0.069), below both raw-sequence and Nucleotide Transformer models. Thus, HOCOMOCO motif identity, approximate position and match score captured a biologically meaningful but incomplete part of the sequence-predictable signal. The gap of 0.167 in mean $R^2$ between the motif transformer and the raw-sequence model with reverse-complement augmentation suggests that prediction also depended on features not fully represented by the motif catalogue or by the selected hit thresholds and position discretisation.
+The five-fold motif transformer obtained a mean $R^2$ of 0.386 (SD 0.069), below both raw-sequence and Nucleotide Transformer models. Thus, HOCOMOCO motif identity, approximate position and match score captured a biologically meaningful but incomplete part of the sequence-predictable signal. The gap was 0.167 relative to the forward-only augmented raw model and approximately 0.178 relative to its final strand-averaged prediction, suggesting that prediction also depended on features not fully represented by the motif catalogue or by the selected hit thresholds and position discretisation.
 
 Exploratory first-fold comparisons among motif architectures produced limited improvements. More complex set, positional and transformer designs generally yielded similar temporal-shape correlations, while increasing parameter count substantially. Simple score- and presence-based summaries also retained non-zero predictive information. Taken together, these results suggest that the principal limitation was the motif representation itself rather than a failure to identify a sufficiently elaborate downstream architecture. Because some of these screens used only regions with $p<0.001$ and only the first fold, they should not be compared numerically with the all-region five-fold results in Table~\ref{tab:cv}.
 
@@ -447,11 +615,15 @@ The use of a multi-output response is important here. Much sequence-to-accessibi
 
 The shape experiments further show that output formulation changes what a model learns even when its input and encoder remain fixed. Direct Poisson training emphasised high-count observations and predicted total activity reasonably well, but recovered relative temporal allocation poorly. A balanced magnitude--shape head improved the shape metrics without improving on equal-region composition training. The preferred formulation therefore depends on the scientific target: reconstructed counts are appropriate when absolute accessibility is primary, whereas a row-normalised objective is more sensitive to when a region responds. The two sets of metrics should not be collapsed into a single ranking.
 
+The row-normalised Poisson experiment resolves an apparent contradiction in these results. Poisson likelihood itself was not intrinsically unsuitable for temporal shape; rather, applying it to the unnormalised matrix allowed large-magnitude regions to dominate. Rescaling every row to the same total gave each trajectory equal influence and raised raw-sequence shape $R^2$ to 0.1958, while retaining a count-like non-negative output. Its similarity to equal-region cross-entropy for the motif CNN follows from the fixed-total likelihood decomposition, whereas the much lower raw linear result shows that the gain was not created by normalisation alone. The scientific conclusion is therefore about weighting and target definition, not simply the choice between a Poisson and a categorical loss.
+
 The strongest result was obtained by direct task-specific learning rather than by a frozen pretrained genomic representation. This agrees with recent evidence that genomic language-model pretraining does not uniformly improve regulatory prediction \citep{patel2024darteval}. One likely explanation is the unusually large labelled dataset. With more than four million development regions, the convolutional model had sufficient observations to learn motifs and motif combinations that were specifically useful for this task. By contrast, the pretrained representation was optimised for a general self-supervised sequence objective and remained frozen. Its attention head could reweight existing features but could not adapt the underlying representation to spermatogenic accessibility.
 
 Pretraining may be most useful when labelled observations are scarce, when inputs are much longer, or when the downstream task aligns closely with the pretraining objective; data-efficient transfer was, for example, one motivation for DNABERT \citep{ji2021dnabert}. None of those conditions necessarily holds here. The input is short, the labelled sample is extremely large, and the desired output is a specialised continuous trajectory. A useful follow-up would construct learning curves by training raw and pretrained models on matched subsets. The pretrained model may have an advantage at small sample sizes even though the task-specific model is stronger at the full scale. Such an analysis would distinguish sample efficiency from full-data performance.
 
-The comparison should nevertheless be interpreted as a comparison of training strategies rather than a definitive ranking of model families. The raw model was trained end to end, whereas the Nucleotide Transformer backbone was frozen. Full or parameter-efficient fine-tuning could narrow the gap. Longer input sequences might also favour pretraining if distal context or broader sequence organisation were important; Enformer, for example, improved gene-expression prediction by integrating sequence context across much longer ranges \citep{avsec2021enformer}. The current result is narrower: for 201-bp inputs and millions of labels, a compact task-specific model was both effective and stronger than the frozen pretrained alternatives tested here.
+The comparison should nevertheless be interpreted as a comparison of training strategies rather than a definitive ranking of model families. The raw model was trained end to end, whereas the principal Nucleotide Transformer backbone was frozen. The later IA3 experiment permitted task-specific multiplicative adaptation inside every transformer block while leaving the original weight matrices unchanged. This narrowed the descriptive held-out gap from 0.0760 for the prespecified frozen model to 0.0493, but did not close it. Longer input sequences might also favour pretraining if distal context or broader sequence organisation were important; Enformer, for example, improved gene-expression prediction by integrating sequence context across much longer ranges \citep{avsec2021enformer}. The current result is narrower: for 201-bp inputs and millions of labels, a compact task-specific model remained stronger than both frozen and parameter-efficient pretrained alternatives tested here.
+
+The layer probe and IA3 experiment qualify this conclusion without reversing it. The final transformer layer was not the most transferable frozen representation: selecting an intermediate layer or learning a mixture recovered approximately 0.02 additional development-fold $R^2$. This pattern is consistent with the layers serving different representational roles rather than forming a monotonic sequence of increasingly useful downstream features. IA3 then recovered a further 0.014 over the mixture during development by gating channels inside the pretrained blocks. However, the mixture and IA3 were nearly tied in the secondary held-out analysis. A substantial part of the apparent benefit of adaptation may therefore come from exposing task-relevant information that already exists at intermediate depth, rather than from extensively rewriting the sequence representation. The comparison does not isolate these mechanisms completely because IA3 used the final layer while the mixture directly combined depths. A factorial comparison of frozen versus IA3-adapted backbones with the same layer-mixture head would be needed for that purpose. Confirmation on a genuinely untouched genomic split would also be required before revising the primary held-out ranking.
 
 Computational cost is also relevant. The frozen model requires tokenisation and inference through a 50-million-parameter backbone even though only its head is updated. The raw residual network processes a four-channel matrix directly and contains far fewer parameters. When the smaller model is also more accurate, the practical case for frozen pretraining is weak for this specific task. A full comparison should eventually report training time, peak memory and inference throughput alongside predictive performance.
 
@@ -469,27 +641,77 @@ The difficult second fold deserves similar attention. Its lower performance was 
 
 The analysis has several strengths. First, every principal model was evaluated on identical group-aware partitions, reducing leakage from overlapping regions. Second, the large sample size permitted direct task-specific learning at a scale uncommon in experimental genomics. Third, the comparison included raw sequence, pretrained representations and explicit motif annotations, allowing predictive performance to be related to different sources of sequence information. Finally, the use of per-bin $R^2$ made changes in performance across developmental progression visible rather than reducing the trajectory to a single outcome.
 
-There are also important limitations. Hyperparameter and architecture screening was more extensive for the raw-sequence and motif models than for full Nucleotide Transformer fine-tuning. The 201-bp window excludes distal regulatory elements and broader genomic context. The motif analysis depends on one database and one scanning pipeline, and the filtered motif screens are not directly comparable with all-region analyses. The bootstrap conditions on the fitted checkpoints and therefore does not quantify training uncertainty. Finally, predictive association does not show that a learned sequence feature causally regulates accessibility. Integrated gradients and in silico mutagenesis can localise model sensitivity, but experimental perturbation would still be required to support causal interpretation.
+There are also important limitations. Hyperparameter and architecture screening was more extensive for the raw-sequence and motif models than for Nucleotide Transformer adaptation, and IA3 is only one parameter-efficient method. The layer-mixture and IA3 held-out results are post hoc because both refinements were designed after the original held-out comparison had been seen; they must therefore be confirmed on a new chromosome- or similarity-held-out partition. The 201-bp window excludes distal regulatory elements and broader genomic context. The motif analysis depends on one database and one scanning pipeline, and the filtered motif screens are not directly comparable with all-region analyses. The bootstrap conditions on the fitted checkpoints and therefore does not quantify training uncertainty. Finally, predictive association does not show that a learned sequence feature causally regulates accessibility. Integrated gradients and in silico mutagenesis can localise model sensitivity, but experimental perturbation would still be required to support causal interpretation.
 
 An additional limitation is that nearby-region grouping is an operational safeguard rather than a complete solution to genomic dependence. Homologous repeats, duplicated elements and similar regulatory sequences can occur far apart and therefore fall in different groups. Recent work has shown that homology can cross conventional genomic partitions and inflate apparent sequence-model generalisation \citep{rafi2025leakage}. Chromosome-held-out or sequence-similarity-clustered evaluation would provide a stricter test of extrapolation. Such evaluation may lower absolute performance, but would clarify whether the model generalises beyond local genomic neighbourhoods.
 
 The main MSE objective also gives equal numerical treatment to all region-bin pairs. Regions with large accessibility values can dominate squared error, while rare trajectory classes may have limited influence on training. The post hoc decomposition showed that raw and motif models agreed much more strongly on regions with easily predicted temporal shape than on regions with easily predicted magnitude. It also showed that both models commonly smoothed sharp or multiple observed peaks. These analyses clarify what the aggregate $R^2$ does not measure, although the tercile and error-type thresholds remain descriptive. The separate motif shape-training experiments used a filtered subset and therefore are not directly comparable with the locked all-region ensembles.
 
-Several extensions would strengthen the biological conclusions. Attribution methods and in silico mutagenesis can identify sequence positions responsible for predicted trajectories, followed by enrichment analysis against known motifs. Combining motif and raw-sequence representations in a prespecified model would test whether explicit annotations add information after end-to-end sequence learning. A limited parameter-efficient fine-tuning experiment would provide a fairer assessment of whether the pretrained representation can adapt to this task. Annotation-stratified comparisons would also be useful if a reliable region annotation table becomes available; they were not attempted here because the required promoter, enhancer and PRDM9 labels were absent from the supplied data.
+Several extensions would strengthen the biological conclusions. Attribution methods and in silico mutagenesis can identify sequence positions responsible for predicted trajectories, followed by enrichment analysis against known motifs. Combining motif and raw-sequence representations in a prespecified model would test whether explicit annotations add information after end-to-end sequence learning. The completed IA3 experiment shows that limited adaptation is useful; the next methodological step is an independently held-out comparison and, if resources permit, a matched factorial experiment separating layer choice from internal adaptation. Annotation-stratified comparisons would also be useful if a reliable region annotation table becomes available; they were not attempted here because the required promoter, enhancer and PRDM9 labels were absent from the supplied data.
 
-These extensions should be prioritised rather than treated as an unrestricted list of additional models. The held-out evaluation and target diagnostics now provide the basis for reliable reporting. Attribution is the most direct next route to biological interpretation. Learning curves and parameter-efficient fine-tuning answer the methodological question about pretraining. Further architecture searches are lower priority because the completed screens already show diminishing returns from complexity within the current inputs and objective.
+These extensions should be prioritised rather than treated as an unrestricted list of additional models. The held-out evaluation and target diagnostics now provide the basis for reliable reporting. Attribution is the most direct next route to biological interpretation. Learning curves would test whether pretraining is more sample-efficient, while a new untouched split would test whether the post-hoc layer and IA3 gains generalise. Further architecture searches are lower priority because the completed screens already show diminishing returns from complexity within the current inputs and objective.
 
 Taken together, the results support a layered view of developmental regulation. Known motifs explain one component of accessibility; broader pretrained sequence features explain more; and task-specific learning from the complete local sequence explains the largest component among the approaches considered. None is sufficient to explain the full trajectory. This ordering is compatible with local DNA providing a regulatory substrate whose activity is resolved through changing cellular conditions during spermatogenesis.
 
 \section{Conclusion}
 
-Local DNA sequence predicted a substantial component of chromatin-accessibility dynamics during mouse spermatogenesis. On locked held-out genomic groups, an ensemble of multi-scale dilated residual convolutional networks trained directly on 201-bp sequences with reverse-complement augmentation achieved a mean per-bin $R^2$ of 0.611. It outperformed its unaugmented counterpart, a frozen Nucleotide Transformer and a model based on HOCOMOCO motifs; paired grouped bootstrap intervals excluded zero for all three differences. Known motifs and pretrained embeddings remained informative, but neither captured all of the signal learned directly from the labelled sequences. These findings support a prominent role for local cis-regulatory information while also indicating that a substantial component of developmental accessibility depends on information outside the present sequence window or on changing cellular context.
+Local DNA sequence predicted a substantial component of chromatin-accessibility dynamics during mouse spermatogenesis. On locked held-out genomic groups, the prespecified forward-orientation ensemble of multi-scale dilated residual convolutional networks trained directly on 201-bp sequences with reverse-complement augmentation achieved a mean per-bin $R^2$ of 0.611. The final inference rule averages predictions from the recorded and reverse-complement orientations; this increased the secondary held-out result to 0.613 while enforcing the expected strand invariance. The raw model outperformed its unaugmented counterpart, a frozen Nucleotide Transformer and a model based on HOCOMOCO motifs; paired grouped bootstrap intervals for the prespecified comparisons excluded zero. In secondary post-hoc evaluation, selecting information across pretrained layers and applying IA3 increased the Nucleotide Transformer result to approximately 0.56, but neither refinement surpassed direct sequence learning. Known motifs and pretrained embeddings remained informative, but neither captured all of the signal learned directly from the labelled sequences. These findings support a prominent role for local cis-regulatory information while also indicating that a substantial component of developmental accessibility depends on information outside the present sequence window or on changing cellular context.
 
 \clearpage
-\bibliographystyle{plainnat}
+\bibliographystyle{plainnat} % Alphabetical by first-author surname.
 \bibliography{references}
 
 \section*{Appendix}
+\addcontentsline{toc}{section}{Appendix}
+
+\subsection*{Complete frozen Nucleotide Transformer layer probe}
+
+Table~\ref{tab:ntlayersfull} reports every candidate from the development-only frozen layer probe. Performance increased from the embedding output through the middle transformer blocks, was highest for layer 6 among the individual layers, and did not improve monotonically thereafter. The learned mixture was marginally higher than layer 6. Every candidate used an identically initialised attention-pooling head and its own optimiser and early-stopping state; the five grouped folds and raw 20-bin target were otherwise unchanged.
+
+\begin{table}[htbp]
+\centering
+\caption{Complete five-fold frozen Nucleotide Transformer layer probe. Values are mean per-bin $R^2$ with sample SD across grouped development folds. Layer 0 denotes the embedding output before the 12 transformer blocks.}
+\label{tab:ntlayersfull}
+\small
+\begin{tabular}{lr@{\qquad}lr}
+\toprule
+Representation & Mean $R^2$ (SD) & Representation & Mean $R^2$ (SD) \\
+\midrule
+Layer 0  & .3452 (.0557) & Layer 7  & .4858 (.0773) \\
+Layer 1  & .3735 (.0622) & Layer 8  & .4877 (.0766) \\
+Layer 2  & .3881 (.0634) & Layer 9  & .4722 (.0758) \\
+Layer 3  & .4455 (.0711) & Layer 10 & .4906 (.0801) \\
+Layer 4  & .4608 (.0735) & Layer 11 & .4847 (.0802) \\
+Layer 5  & .4533 (.0716) & Layer 12 & .4744 (.0738) \\
+Layer 6  & .4930 (.0797) & Learned mixture, 1--12 & \textbf{.4948 (.0829)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Parameter-efficient Nucleotide Transformer adaptation}
+
+Table~\ref{tab:ia3folds} gives the complete development-fold results for IA3. The original embedding and transformer matrices remained frozen; the trainable state comprised the IA3 scale vectors and the attention-pooling regression head. All five adapters were selected without accessing the held-out responses. The post-hoc held-out result reported in Table~\ref{tab:ntposthoc} was calculated only after development training was complete by averaging the five fold-model predictions at each region and pseudotime bin.
+
+\begin{table}[htbp]
+\centering
+\caption{Grouped five-fold development results for Nucleotide Transformer IA3 adaptation. The final row reports the sample SD across folds.}
+\label{tab:ia3folds}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Fold & Best epoch & Mean per-bin $R^2$ & RMSE \\
+\midrule
+1 & 3 & .4816 & 53.68 \\
+2 & 3 & .3681 & 65.52 \\
+3 & 2 & .5671 & 45.31 \\
+4 & 4 & .5607 & 45.78 \\
+5 & 4 & .5662 & 47.12 \\
+\midrule
+Mean & -- & .5088 & 51.48 \\
+SD & -- & .0865 & 8.54 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection*{Dense motif magnitude architecture search}
 
@@ -516,18 +738,12 @@ Standard CNN without position & 0.88 M & .3985 (.0719) & .3862 & 57.73 \\
 
 Dense transformer encoders with 128 or 256 hidden features were also examined on the first development fold using either direct Poisson rates or a balanced magnitude--shape loss. The strongest direct model obtained shape $R^2=0.0155$, mean Pearson correlation 0.3690, scalar magnitude $R^2=0.4027$ and reconstructed count-matrix $R^2=0.3637$. The strongest balanced model improved shape $R^2$ to 0.0702 and Pearson correlation to 0.4350, while scalar magnitude and count-matrix $R^2$ declined to 0.3683 and 0.3351. These results are reported as a negative first-fold ablation rather than a five-fold model comparison.
 
+\subsection*{Row-normalised Poisson implementation}
+
+The matched five-fold experiment in Table~\ref{tab:normalisedpoisson} is implemented in \texttt{scripts/training/train\_shape\_shared\_trunk.py}. The script constructs the $p<0.001$ subset within each pre-existing grouped fold, preserves zero entries during row normalisation, exposes the pseudo-count total through \texttt{--shape-total}, and stores the validation-region indices and predicted compositions for independent metric recomputation. Reproducible fold summaries are archived in \texttt{results/metrics/shape\_normalized\_poisson/}. Full source listings are maintained in the accompanying repository rather than reproduced in the dissertation; the Appendix records the mathematical objective, exact model variants and paths required to reproduce the table.
+
 \subsection*{Computational reproducibility}
 
 The analysis used memory-mapped arrays for the 4,851,460-by-20 response matrix and the 201-bp sequences. Group assignments were constructed before all model fitting and reused across model classes. Code, package versions, random seeds, final hyperparameters and the exact held-out test indices should be archived with the final dissertation.
-
-\subsection*{Items to complete before submission}
-
-\begin{enumerate}
-\item Confirm the precise construction and normalisation of the 20 pseudotime accessibility values from the source analysis.
-\item Verify that the post hoc shape-error thresholds and representative examples remain appropriate after supervisory review.
-\item Consider motif enrichment of high-impact substitutions only after selecting a prespecified enrichment procedure and background set.
-\item Add genomic-annotation-stratified analyses only if a reliable annotation table becomes available.
-\item Replace the acknowledgement placeholder and verify every bibliography entry.
-\end{enumerate}
 
 \end{document}
