@@ -296,5 +296,17 @@
     "tests/test_ia3.py": "c958d5ed0677cbf2171709f1104f48eb4dec4b8fe943119152666b17a8c60446",
     "tests/test_data_validation.py": "8b4ae43b8f287249d1c072d2887606afe4f20672ca53cc125a8641fed686c85c"
   },
-  "source_hash_normalization": "UTF-8 source with LF line endings"
+  "source_hash_normalization": "UTF-8 source with LF line endings",
+  "clean_cpu_environment": {
+    "installation": "Fresh venv, torch from CPU wheel index, editable .[dev]",
+    "torch": "2.14.0+cpu",
+    "numpy": "2.5.3",
+    "transformers": "4.57.6",
+    "pytest": "8.4.2",
+    "ruff": "0.16.6",
+    "unit_tests_passed": 22,
+    "format_check": "passed (43 files)",
+    "static_check": "passed"
+  },
+  "github_hosted_ci": "Job did not start: account-side infrastructure restriction. Checks repeated independently in a clean environment."
 }

@@ -69,6 +69,11 @@ as the maintained command-line interface.
   or development/test boundary.
 - All 34 command-help entries, static checks, archived layer-summary generation and the approved
   model-comparison figure generator were exercised separately.
+- An additional fresh virtual environment installed the CPU PyTorch wheel and
+  `.[dev]` from scratch. With PyTorch 2.14.0+cpu, NumPy 2.5.3, Transformers 4.57.6
+  and pytest 8.4.2, the same 22 tests, formatting and static checks all passed.
+  GitHub's hosted job did not start because of an account-side infrastructure
+  restriction; these clean-environment checks were executed independently.
 
 The GPU smoke tests verify execution and file interfaces, not model quality or
 exact numerical reproduction. Full five-fold training, held-out inference and
