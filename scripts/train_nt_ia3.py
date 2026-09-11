@@ -10,10 +10,8 @@ folds are read; the locked held-out set is never accessed.
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -23,10 +21,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
+from developmental_accessibility.paths import DATA_ROOT, RUN_ROOT
 
-BASE_DIR = Path("/root/sc-motif-open/R")
-sys.path.insert(0, str(BASE_DIR))
-import train_nt_heads as base  # noqa: E402
+BASE_DIR = Path(str(DATA_ROOT))
+from scripts.training import train_nt_heads as base
 
 
 class OutputScale(nn.Module):
@@ -58,17 +56,19 @@ class IA3Regressor(nn.Module):
         self.nt = add_ia3(nt)
         self.head = base.AttentionPoolingHead()
 
+    def load_adapter(self, state):
+        """Require every learned scale and head weight, while retaining the frozen backbone."""
+        expected = {name for name, p in self.named_parameters() if p.requires_grad}
+        missing = expected - state.keys()
+        unexpected = state.keys() - expected
+        if missing or unexpected:
+            raise ValueError(
+                f"Invalid adapter checkpoint; missing={sorted(missing)}, unexpected={sorted(unexpected)}"
+            )
+        return self.load_state_dict(state, strict=False)
+
     def forward(self, input_ids, attention_mask):
-        output = self.nt(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            output_hidden_states=False,
-            return_dict=True,
-        )
-        x = output.hidden_states[-1] if output.hidden_states is not None else output.logits
-        # AutoModelForMaskedLM does not expose last_hidden_state.  Retrieve the
-        # encoder output directly to avoid using vocabulary logits.
-        raise RuntimeError("IA3Regressor.forward must be replaced by encoder_forward")
+        return self.encoder_forward(input_ids, attention_mask)
 
     def encoder_forward(self, input_ids, attention_mask):
         output = self.nt.esm(
@@ -134,19 +134,25 @@ def main():
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--max-train", type=int, default=0)
     parser.add_argument("--max-val", type=int, default=0)
-    parser.add_argument("--output-root", default="/root/autodl-tmp/nt_ia3")
+    parser.add_argument("--output-root", default=str(RUN_ROOT / "nt_ia3"))
     args = parser.parse_args()
+    if min(args.epochs, args.patience, args.batch_size, args.accum_steps) < 1:
+        parser.error("epochs, patience, batch-size and accum-steps must be positive")
 
     base.set_seed(9300 + args.fold)
     torch.set_float32_matmul_precision("high")
     device = torch.device("cuda:0")
     output = Path(args.output_root) / f"fold{args.fold + 1}"
+    if output.exists() and any(output.iterdir()):
+        parser.error(f"Output directory is not empty: {output}; choose a new --output-root")
     output.mkdir(parents=True, exist_ok=True)
     train_idx, val_idx = base.load_folds(base.FOLDS_FILE, args.fold)
     if args.max_train:
         train_idx = train_idx[: args.max_train]
     if args.max_val:
         val_idx = val_idx[: args.max_val]
+    if not len(train_idx) or not len(val_idx):
+        raise ValueError("Training and validation splits must both be nonempty")
 
     tokenizer = AutoTokenizer.from_pretrained(
         base.MODEL_PATH, trust_remote_code=True, local_files_only=True
@@ -202,7 +208,7 @@ def main():
                 optimizer.zero_grad(set_to_none=True)
             if step % 1000 == 0:
                 print(
-                    f"epoch={epoch} step={step}/{len(train_loader)} mse={total_loss/seen:.3f}",
+                    f"epoch={epoch} step={step}/{len(train_loader)} mse={total_loss / seen:.3f}",
                     flush=True,
                 )
         metrics = evaluate(model, val_loader, tokenizer, device)

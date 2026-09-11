@@ -1,0 +1,300 @@
+{
+  "date": "2026-09-11",
+  "python": "3.12.3",
+  "torch": "2.12.1+cu130",
+  "numpy": "2.4.6",
+  "pytest": "8.4.2",
+  "unit_tests": "......................                                                   [100%]\n=============================== warnings summary ===============================\ntests/test_edge_cases.py::test_sparse_motif_empty_regions_and_padding\n  /root/autodl-tmp/repository_validation_20260911/src/developmental_accessibility/models.py:172: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True\n    self.transformer = nn.TransformerEncoder(layer, num_layers=n_layers)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n22 passed, 1 warning in 3.59s\n",
+  "gpu_smoke": [
+    {
+      "name": "raw_no_rc",
+      "returncode": 0
+    },
+    {
+      "name": "convnext",
+      "returncode": 0
+    },
+    {
+      "name": "raw_rc_attn",
+      "returncode": 0
+    },
+    {
+      "name": "sparse_prepare",
+      "returncode": 0
+    },
+    {
+      "name": "sparse_train",
+      "returncode": 0
+    },
+    {
+      "name": "raw_rc",
+      "returncode": 0
+    },
+    {
+      "name": "dense",
+      "returncode": 0
+    },
+    {
+      "name": "dense_nopos",
+      "returncode": 0
+    },
+    {
+      "name": "dense_presence",
+      "returncode": 0
+    },
+    {
+      "name": "shape_raw_cnn",
+      "returncode": 0
+    },
+    {
+      "name": "shape_motif_cnn",
+      "returncode": 0
+    },
+    {
+      "name": "shape_motif_transformer",
+      "returncode": 0
+    },
+    {
+      "name": "shape_motif_nopos_cnn",
+      "returncode": 0
+    },
+    {
+      "name": "shape_motif_linear",
+      "returncode": 0
+    },
+    {
+      "name": "frozen_nt",
+      "returncode": 0
+    },
+    {
+      "name": "ia3",
+      "returncode": 0
+    },
+    {
+      "name": "layer_probe",
+      "returncode": 0
+    }
+  ],
+  "cli_checks": [
+    {
+      "script": "scripts/evaluate_nt_posthoc_heldout.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/evaluate_raw_rc_tta_cv.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/evaluate_raw_rc_tta_posthoc.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/make_architecture_figures.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/summarize_nt_layerwise.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/train_nt_ia3.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/train_nt_layerwise.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/analysis/analyze_region_errors.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/analysis/analyze_shared_good_attribution.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/analysis/collect_experiment_registry.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/diagnostics/diagnose_development.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/diagnostics/smoke_training.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/diagnostics/validate_data.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/diagnostics/verify_weights.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/evaluation/bootstrap_heldout_ensembles.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/evaluation/evaluate_motif_ensemble.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/evaluation/evaluate_nt_ensemble.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/evaluation/evaluate_raw_fold_ensemble.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/figures/build_nt_audited.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/figures/make_architecture_figures.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/figures/make_final_figures.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/figures/make_interpretation_figures.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/figures/plot_model_comparison.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/interpretation/interpret_final_raw.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_dense_motif_magnitude.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_final_raw.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_models.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_motif_transformer_allregions.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_nt_heads.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_raw_rc.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_shape_shared_trunk.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_sparse_motif.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_convnext.py",
+      "returncode": 0,
+      "detail": ""
+    },
+    {
+      "script": "scripts/training/train_raw_rc_attn.py",
+      "returncode": 0,
+      "detail": ""
+    }
+  ],
+  "published_checkpoints_verified": 22,
+  "published_weight_hashes_match": true,
+  "layer_summary_matches_archive": true,
+  "model_comparison_pdf_bytes": 79679,
+  "source_sha256": {
+    "scripts/evaluate_nt_posthoc_heldout.py": "5a9bfae100bca689eddb3c07cda8de13c82a97cd944b352b6229dfd8a4ab9955",
+    "scripts/evaluate_raw_rc_tta_cv.py": "0203dcc8ffca75b025b1d68c02e2f9c0b94d6f44824b7a8799e90e1772ba5d3b",
+    "scripts/evaluate_raw_rc_tta_posthoc.py": "ada8cc079cea9b484ef343c8f7f4d350af0256b15804c118b086e3ae5689ba87",
+    "scripts/make_architecture_figures.py": "4f59d2628c6fd4b906e61f475d79044c7e2fefe507e7fab1708b1a2523e0ab35",
+    "scripts/summarize_nt_layerwise.py": "ca2e2b8102bfe40f9f2d939991630a4820a4d95dd462eaf5d1396d22ae686348",
+    "scripts/train_nt_ia3.py": "aa6d41a4355ade57919e101759c9e23e0c7e766b503c63acfc4a7fa7496c20ba",
+    "scripts/train_nt_layerwise.py": "d199b24893bfd0d0290ea56d68238d5e2d22f9f1a6f1448da0148c64c14352a5",
+    "scripts/analysis/analyze_region_errors.py": "8c26e16238aa7a7a25925c85017fc6bc0f74112cf5b015b7bff39aef0f5af598",
+    "scripts/analysis/analyze_shared_good_attribution.py": "fdba04eb63030fedd367db2927865428f5287c4ebe99cfa49e5a46d31567886f",
+    "scripts/analysis/collect_experiment_registry.py": "295f963c0b9d78453c5e2560dc7dfc3c2625c1e2c78c23583204f8985e1c1f19",
+    "scripts/diagnostics/diagnose_development.py": "afe933bba8495e6c03f67a8e037b862f17194c7c8c8a96a2eca9cf1fb663e289",
+    "scripts/diagnostics/smoke_training.py": "48e07cacf26ec4b84ca1d6fcd7b31db6c8cec0dd59cf748220f2adf65c1332fd",
+    "scripts/diagnostics/validate_data.py": "dee041fd9e8a6222227552136d0d9ec9f60d925304f35bdd4952db826d10d505",
+    "scripts/diagnostics/verify_weights.py": "9ff18bc44243d3a1221f86b3b136faeefe2622c0f36d933860e25f02ce2039c8",
+    "scripts/evaluation/bootstrap_heldout_ensembles.py": "d214b4830f2f157bd6a0f95e4bb11f14d424c10f28f03ad288315964a274a206",
+    "scripts/evaluation/evaluate_motif_ensemble.py": "3952e2bab29c0714d8aeb4d35fa2b5efff7245badda26d6cf6e0dd27e41f0a82",
+    "scripts/evaluation/evaluate_nt_ensemble.py": "325d4e67c8db6fe11e3985953cd5bd0875eb8e66294c489997a54c00d97ed32e",
+    "scripts/evaluation/evaluate_raw_fold_ensemble.py": "d208098fcb589ae0b2e5214e31cf73d93a0392f8038227be2cdff0c4fdb75e2a",
+    "scripts/figures/build_nt_audited.py": "d7cb1f8ebfc00c44c6f03cbfec461fcae9ff7cd7b0540c165e72e0a4cb37a037",
+    "scripts/figures/make_architecture_figures.py": "9d8ad1a819ba8b0c94236ed52d1bbe2d8a78d1dceb1d7136f08aa8b7c30196c2",
+    "scripts/figures/make_final_figures.py": "d651ae301df6a7723b2fddf77737ac543446b500122f7da3502829aab15110e8",
+    "scripts/figures/make_interpretation_figures.py": "a12fc7887d0b3db216407b191d32e150e53a4c59defbbddff9efb29b816d8790",
+    "scripts/figures/plot_model_comparison.py": "fdbfc18ae500159e939418dee2a559422b9e34f59a333b876a13bfce9130ee44",
+    "scripts/interpretation/interpret_final_raw.py": "21bc9c66fc0d468f526438c42463f9227bd278b28a6cf6f4101dcac83f2e4a8f",
+    "scripts/training/train_dense_motif_magnitude.py": "fca191b0efe2522e6245bde6adb71e32b945a376da3863be967b5b72d84a514c",
+    "scripts/training/train_final_raw.py": "0e4e91b3c0cc3adfb1e79e5eb4ffbcb1ee57246a91d8435db0aa3031e944a3af",
+    "scripts/training/train_models.py": "d019164ba8f672300ee7677473b1ff6e58627bab586571b3b142ae925b07fd89",
+    "scripts/training/train_motif_transformer_allregions.py": "f870e1ba4acf4a752e19e0d7977ed1f27c8f57f8d138c0d60ab268509af2cf3f",
+    "scripts/training/train_nt_heads.py": "2faecb08732683d0dd4d00b3e84e0de9344ce4115c9962ec5a047c05c7a91cd3",
+    "scripts/training/train_raw_rc.py": "ad4c4960e6c2f9a27698fd2024d4854efc111ae70d1d56ef6b500a2a300a5c76",
+    "scripts/training/train_shape_shared_trunk.py": "c20ac14dc0b70768b26ae0af33ff94af6b84545bf4e6e37d56595ba6330a87e0",
+    "scripts/training/train_sparse_motif.py": "cc7233a196a2199f21251e1eccfeabc7ede4f65b8497aa5b45756c1637b53e41",
+    "scripts/training/train_convnext.py": "fff98095216fd68234614f9c5c386017d2a252ad6a07ca4658084006eb3615ad",
+    "scripts/training/train_raw_rc_attn.py": "074ccf732e36bc9ea709315c5055cb0244659297bbb9597e898e058cf08d9201",
+    "src/developmental_accessibility/data.py": "2bddf211dc3701ab2f0c0f566643b8435971d72f66692a7594de5c68a03fa8c0",
+    "src/developmental_accessibility/metrics.py": "e0ca192fd6419722b221c193a47fe895bd9d4bc046df5c529959097d10dbd7d3",
+    "src/developmental_accessibility/models.py": "23d00e4800904bb6fc30ad5e6e910b9524bcbbce6eb0bed7493b04db2eb1b0aa",
+    "src/developmental_accessibility/paths.py": "37d27ded8d2864d123ae071e9e51a56d7677e62b20fe22f172b813e0b76c05a5",
+    "src/developmental_accessibility/__init__.py": "d788d389ba2de6624aa4beed4e88c538f31d459fb7679b4ee8683d81e67b6796",
+    "tests/test_core.py": "4fa560173b2f6c9fa4b2405e733a07f423e730f8ad4aad806e7c47b4a7641b41",
+    "tests/test_edge_cases.py": "e6d4c91a040417a0c40ed6060b9f02544ac4618e677d0f4fc66415bb54357d52",
+    "tests/test_ia3.py": "c958d5ed0677cbf2171709f1104f48eb4dec4b8fe943119152666b17a8c60446",
+    "tests/test_data_validation.py": "8b4ae43b8f287249d1c072d2887606afe4f20672ca53cc125a8641fed686c85c"
+  },
+  "source_hash_normalization": "UTF-8 source with LF line endings"
+}

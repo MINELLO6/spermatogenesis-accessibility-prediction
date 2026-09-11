@@ -15,13 +15,14 @@ dependencies = [
   "pandas>=2.1,<3",
   "scikit-learn>=1.3,<2",
   "scipy>=1.11,<2",
-  "torch>=2.1,<3",
+  "torch>=2.3,<3",
   "tqdm>=4.66,<5",
   "transformers>=4.38,<5",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "ruff>=0.6,<1"]
+figures = ["reportlab>=4,<5", "pypdfium2>=4,<6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -32,4 +33,3 @@ target-version = "py310"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-

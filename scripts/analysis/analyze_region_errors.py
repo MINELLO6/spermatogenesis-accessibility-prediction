@@ -15,12 +15,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from developmental_accessibility.paths import DATA_ROOT, RUN_ROOT
 
-DATA = Path("/root/sc-motif-open/R")
-FINAL = Path("/root/autodl-tmp/final_analysis")
-OUT = Path("/root/autodl-tmp/region_error_analysis")
-OUT.mkdir(parents=True, exist_ok=True)
-(OUT / "figures").mkdir(exist_ok=True)
+DATA = Path(str(DATA_ROOT))
+FINAL = Path(str(RUN_ROOT / "final_analysis"))
+OUT = Path(str(RUN_ROOT / "region_error_analysis"))
 
 EPS = 1e-8
 PEAK_PROMINENCE = 0.03
@@ -66,9 +65,22 @@ def local_peak_count(q: np.ndarray) -> np.ndarray:
     q = smooth_profile(q)
     med = np.median(q, axis=1, keepdims=True)
     core = q[:, 1:-1]
-    hit = (core > q[:, :-2]) & (core >= q[:, 2:]) & (core >= PEAK_MIN_HEIGHT) & (core >= med + LOCAL_PEAK_EXCESS)
-    edge0 = (q[:, 0] > q[:, 1]) & (q[:, 0] >= PEAK_MIN_HEIGHT) & (q[:, 0] >= med[:, 0] + LOCAL_PEAK_EXCESS)
-    edge1 = (q[:, -1] > q[:, -2]) & (q[:, -1] >= PEAK_MIN_HEIGHT) & (q[:, -1] >= med[:, 0] + LOCAL_PEAK_EXCESS)
+    hit = (
+        (core > q[:, :-2])
+        & (core >= q[:, 2:])
+        & (core >= PEAK_MIN_HEIGHT)
+        & (core >= med + LOCAL_PEAK_EXCESS)
+    )
+    edge0 = (
+        (q[:, 0] > q[:, 1])
+        & (q[:, 0] >= PEAK_MIN_HEIGHT)
+        & (q[:, 0] >= med[:, 0] + LOCAL_PEAK_EXCESS)
+    )
+    edge1 = (
+        (q[:, -1] > q[:, -2])
+        & (q[:, -1] >= PEAK_MIN_HEIGHT)
+        & (q[:, -1] >= med[:, 0] + LOCAL_PEAK_EXCESS)
+    )
     return hit.sum(axis=1) + edge0 + edge1
 
 
@@ -134,9 +146,13 @@ def motif_enrichment(global_ids: np.ndarray, selected: np.ndarray) -> None:
     log2e = np.log2(sel_prev / bg_prev)
     order = np.argsort(log2e)[::-1]
     with open(OUT / "motif_enrichment_intersection.csv", "w") as h:
-        h.write("motif_id,selected_regions,background_regions,selected_prevalence,background_prevalence,log2_enrichment\n")
+        h.write(
+            "motif_id,selected_regions,background_regions,selected_prevalence,background_prevalence,log2_enrichment\n"
+        )
         for k in order:
-            h.write(f"{k+1},{sel_m[k+1]},{bg_m[k+1]},{sel_prev[k]:.8g},{bg_prev[k]:.8g},{log2e[k]:.8g}\n")
+            h.write(
+                f"{k + 1},{sel_m[k + 1]},{bg_m[k + 1]},{sel_prev[k]:.8g},{bg_prev[k]:.8g},{log2e[k]:.8g}\n"
+            )
 
     bg_mp = all_mp - sel_mp
     sel_prev_mp = (sel_mp[1:, 1:] + 0.5) / (n_sel + 1.0)
@@ -144,28 +160,44 @@ def motif_enrichment(global_ids: np.ndarray, selected: np.ndarray) -> None:
     log2e_mp = np.log2(sel_prev_mp / bg_prev_mp)
     flat_order = np.argsort(log2e_mp.ravel())[::-1]
     with open(OUT / "motif_position_enrichment_intersection.csv", "w") as h:
-        h.write("motif_id,position_bin,selected_regions,background_regions,selected_prevalence,background_prevalence,log2_enrichment\n")
+        h.write(
+            "motif_id,position_bin,selected_regions,background_regions,selected_prevalence,background_prevalence,log2_enrichment\n"
+        )
         for z in flat_order:
             m, p = np.unravel_index(z, log2e_mp.shape)
-            h.write(f"{m+1},{p+1},{sel_mp[m+1,p+1]},{bg_mp[m+1,p+1]},{sel_prev_mp[m,p]:.8g},{bg_prev_mp[m,p]:.8g},{log2e_mp[m,p]:.8g}\n")
+            h.write(
+                f"{m + 1},{p + 1},{sel_mp[m + 1, p + 1]},{bg_mp[m + 1, p + 1]},{sel_prev_mp[m, p]:.8g},{bg_prev_mp[m, p]:.8g},{log2e_mp[m, p]:.8g}\n"
+            )
 
     top = order[:20][::-1]
     fig, ax = plt.subplots(figsize=(7.2, 5.2))
-    ax.barh([f"motif {i+1}" for i in top], log2e[top], color="#3B82A0")
-    ax.set_xlabel("log2 prevalence enrichment\n(raw-good ∩ motif-good versus remaining held-out regions)")
+    ax.barh([f"motif {i + 1}" for i in top], log2e[top], color="#3B82A0")
+    ax.set_xlabel(
+        "log2 prevalence enrichment\n(raw-good ∩ motif-good versus remaining held-out regions)"
+    )
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     save_figure(fig, "shared_good_motif_enrichment")
 
 
 def main() -> None:
+    import argparse
+
+    argparse.ArgumentParser(description=__doc__).parse_args()
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "figures").mkdir(exist_ok=True)
     heldout = np.load(FINAL / "heldout_test_idx_LOCKED.npy")
     with open(DATA / "totmat_shape.txt") as h:
         n, t = map(int, h.read().split())
     targets_mm = np.memmap(DATA / "totmat_f64.bin", dtype="<f8", mode="r", shape=(n, t), order="F")
     y = np.asarray(targets_mm[heldout], dtype=np.float32)
-    raw = np.load(FINAL / "heldout_ensembles/raw_rc_5fold_ensemble/heldout_predictions_f32.npy", mmap_mode="r")
-    motif = np.load(FINAL / "heldout_ensembles/motif_transformer_5fold_ensemble/heldout_predictions_f32.npy", mmap_mode="r")
+    raw = np.load(
+        FINAL / "heldout_ensembles/raw_rc_5fold_ensemble/heldout_predictions_f32.npy", mmap_mode="r"
+    )
+    motif = np.load(
+        FINAL / "heldout_ensembles/motif_transformer_5fold_ensemble/heldout_predictions_f32.npy",
+        mmap_mode="r",
+    )
 
     true_mag, true_q = row_shape(y)
     metrics: dict[str, dict[str, np.ndarray | list[float]]] = {}
@@ -220,17 +252,23 @@ def main() -> None:
         "shape_good_raw": int(raw_shape_good.sum()),
         "shape_good_motif": int(motif_shape_good.sum()),
         "shape_good_intersection": int(shape_intersection.sum()),
-        "shape_good_jaccard": float(shape_intersection.sum() / (raw_shape_good | motif_shape_good).sum()),
+        "shape_good_jaccard": float(
+            shape_intersection.sum() / (raw_shape_good | motif_shape_good).sum()
+        ),
         "magnitude_good_raw": int(raw_mag_good.sum()),
         "magnitude_good_motif": int(motif_mag_good.sum()),
         "magnitude_good_intersection": int(mag_intersection.sum()),
-        "magnitude_good_jaccard": float(mag_intersection.sum() / (raw_mag_good | motif_mag_good).sum()),
+        "magnitude_good_jaccard": float(
+            mag_intersection.sum() / (raw_mag_good | motif_mag_good).sum()
+        ),
     }
     with open(OUT / "overlap_summary.json", "w") as h:
         json.dump(overlap, h, indent=2)
 
     with gzip.open(OUT / "region_metrics.csv.gz", "wt") as h:
-        h.write("heldout_row,global_index,true_magnitude,raw_magnitude_log_error,raw_magnitude_class,raw_shape_js,raw_shape_pearson,raw_shape_class,raw_error_type,motif_magnitude_log_error,motif_magnitude_class,motif_shape_js,motif_shape_pearson,motif_shape_class,motif_error_type,shape_good_intersection,magnitude_good_intersection\n")
+        h.write(
+            "heldout_row,global_index,true_magnitude,raw_magnitude_log_error,raw_magnitude_class,raw_shape_js,raw_shape_pearson,raw_shape_class,raw_error_type,motif_magnitude_log_error,motif_magnitude_class,motif_shape_js,motif_shape_pearson,motif_shape_class,motif_error_type,shape_good_intersection,magnitude_good_intersection\n"
+        )
         for i in range(len(heldout)):
             h.write(
                 f"{i},{heldout[i]},{true_mag[i]:.8g},{metrics['raw']['magnitude_log_error'][i]:.8g},{metrics['raw']['magnitude_class'][i]},"
@@ -245,7 +283,7 @@ def main() -> None:
         for name in ("raw", "motif"):
             vals, counts = np.unique(metrics[name]["error_type"], return_counts=True)
             for v, c in zip(vals, counts):
-                h.write(f"{name},{v},{c},{c/len(heldout):.8g}\n")
+                h.write(f"{name},{v},{c},{c / len(heldout):.8g}\n")
 
     categories = ["peak_time_shift", "over_flat", "false_peak", "missed_peak", "multi_peak_failure"]
     exemplars: dict[str, dict[str, list[int]]] = {}
@@ -267,7 +305,14 @@ def main() -> None:
             axes[row, col].plot(x, true_q[idx], color="black", lw=2, label="observed")
             axes[row, col].plot(x, metrics[name]["shape"][idx], color="#D95F02", lw=2, label=name)
             axes[row, col].set_title(f"{name}: {stratum}")
-            axes[row, col].text(0.03, 0.95, f"region {heldout[idx]}\nJS={metrics[name]['shape_js'][idx]:.3f}", transform=axes[row, col].transAxes, va="top", fontsize=8)
+            axes[row, col].text(
+                0.03,
+                0.95,
+                f"region {heldout[idx]}\nJS={metrics[name]['shape_js'][idx]:.3f}",
+                transform=axes[row, col].transAxes,
+                va="top",
+                fontsize=8,
+            )
             axes[row, col].spines[["top", "right"]].set_visible(False)
     axes[0, 0].legend(frameon=False, fontsize=8)
     for ax in axes[-1]:
@@ -286,7 +331,14 @@ def main() -> None:
                 idx = ids[0]
                 ax.plot(x, true_q[idx], color="black", lw=1.8)
                 ax.plot(x, metrics[name]["shape"][idx], color="#7570B3", lw=1.8)
-                ax.text(0.03, 0.95, f"region {heldout[idx]}", transform=ax.transAxes, va="top", fontsize=7)
+                ax.text(
+                    0.03,
+                    0.95,
+                    f"region {heldout[idx]}",
+                    transform=ax.transAxes,
+                    va="top",
+                    fontsize=7,
+                )
             ax.set_title(category.replace("_", "\n"), fontsize=9)
             ax.spines[["top", "right"]].set_visible(False)
     axes[0, 0].set_ylabel("raw\nnormalised signal")

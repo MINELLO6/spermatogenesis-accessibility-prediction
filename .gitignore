@@ -20,6 +20,9 @@ data/
 checkpoints/
 predictions/
 outputs/
+runs/
+models/
+*.egg-info/
 !weights/**/*.pt
 paper/*.aux
 paper/*.bbl

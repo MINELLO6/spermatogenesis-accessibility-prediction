@@ -14,7 +14,6 @@ import argparse
 import copy
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -24,21 +23,20 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
+from developmental_accessibility.paths import DATA_ROOT, RUN_ROOT
 
-SOURCE_DIR = Path("/root/sc-motif-open/R")
-sys.path.insert(0, str(SOURCE_DIR))
+SOURCE_DIR = Path(str(DATA_ROOT))
 
-from train_nt_heads import (  # noqa: E402
-    AttentionPoolingHead,
+from scripts.training.train_nt_heads import (
     FOLDS_FILE,
-    IndexDataset,
     MODEL_PATH,
+    AttentionPoolingHead,
+    IndexDataset,
     SequenceCollator,
     load_folds,
     set_seed,
     tokenize_batch,
 )
-
 
 LAYER_KEYS = [f"layer_{index:02d}" for index in range(13)]
 WEIGHTED_KEY = "weighted_01_12"
@@ -78,7 +76,9 @@ class FrozenLayerwiseNT(nn.Module):
     def load_candidate_state(self, key: str, state: dict):
         self.heads[key].load_state_dict(state["head"])
         if key == WEIGHTED_KEY:
-            self.layer_mix_logits.data.copy_(state["layer_mix_logits"].to(self.layer_mix_logits.device))
+            self.layer_mix_logits.data.copy_(
+                state["layer_mix_logits"].to(self.layer_mix_logits.device)
+            )
 
     def forward(self, input_ids, attention_mask, keys):
         with torch.no_grad():
@@ -99,7 +99,9 @@ class FrozenLayerwiseNT(nn.Module):
         for key in keys:
             if key == WEIGHTED_KEY:
                 weights = torch.softmax(self.layer_mix_logits, dim=0)
-                representation = sum(weights[index] * hidden_states[index + 1] for index in range(12))
+                representation = sum(
+                    weights[index] * hidden_states[index + 1] for index in range(12)
+                )
             else:
                 representation = hidden_states[int(key.rsplit("_", 1)[1])]
             predictions[key] = self.heads[key](representation, valid_mask)
@@ -156,7 +158,9 @@ def train(args):
     output = Path(args.output_root) / f"fold{args.fold + 1}"
     output.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True, local_files_only=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_PATH, trust_remote_code=True, local_files_only=True
+    )
     nt_model = AutoModelForMaskedLM.from_pretrained(
         MODEL_PATH, trust_remote_code=True, local_files_only=True
     )
@@ -226,7 +230,10 @@ def train(args):
             encoded = tokenize_batch(tokenizer, seqs, device)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 predictions = model(encoded["input_ids"], encoded["attention_mask"], sorted(active))
-                losses = {key: F.mse_loss(prediction.float(), target) for key, prediction in predictions.items()}
+                losses = {
+                    key: F.mse_loss(prediction.float(), target)
+                    for key, prediction in predictions.items()
+                }
                 total_loss = sum(losses.values()) / args.accum_steps
             total_loss.backward()
             update = step % args.accum_steps == 0 or step == len(train_loader)
@@ -240,7 +247,10 @@ def train(args):
             train_n += target.shape[0]
             if step % args.log_every == 0:
                 message = {key: train_sums[key] / train_n for key in sorted(active)}
-                print(f"epoch={epoch} step={step}/{len(train_loader)} train_mse={json.dumps(message)}", flush=True)
+                print(
+                    f"epoch={epoch} step={step}/{len(train_loader)} train_mse={json.dumps(message)}",
+                    flush=True,
+                )
 
         validation = evaluate(model, val_loader, tokenizer, device, sorted(active))
         epoch_record = {"epoch": epoch, "active": sorted(active), "validation": validation}
@@ -261,13 +271,17 @@ def train(args):
                 waits[key] += 1
                 if waits[key] >= args.patience:
                     active.remove(key)
-                    print(f"EARLY_STOP {key} epoch={epoch} best_epoch={best_epoch[key]}", flush=True)
+                    print(
+                        f"EARLY_STOP {key} epoch={epoch} best_epoch={best_epoch[key]}", flush=True
+                    )
         if not active:
             break
 
     for key in ALL_KEYS:
         if key not in best_states:
-            best_states[key] = torch.load(output / f"{key}.pt", map_location="cpu", weights_only=True)
+            best_states[key] = torch.load(
+                output / f"{key}.pt", map_location="cpu", weights_only=True
+            )
         model.load_candidate_state(key, best_states[key])
     final = evaluate(model, val_loader, tokenizer, device, ALL_KEYS)
     for key in ALL_KEYS:
@@ -295,7 +309,7 @@ def parse_args():
     parser.add_argument("--clip-grad", type=float, default=5.0)
     parser.add_argument("--min-delta", type=float, default=1e-6)
     parser.add_argument("--log-every", type=int, default=500)
-    parser.add_argument("--output-root", default="/root/autodl-tmp/nt_layerwise5")
+    parser.add_argument("--output-root", default=str(RUN_ROOT / "nt_layerwise5_v2"))
     return parser.parse_args()
 
 

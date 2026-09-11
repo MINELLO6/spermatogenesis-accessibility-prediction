@@ -33,4 +33,3 @@ def test_metrics_for_perfect_prediction():
     metrics = regression_metrics(y, y)
     assert metrics["rmse"] == 0.0
     assert metrics["mean_r2"] == 1.0
-
