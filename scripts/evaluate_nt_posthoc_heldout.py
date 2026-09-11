@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -19,17 +18,16 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
+from developmental_accessibility.paths import DATA_ROOT, RUN_ROOT
 
-SOURCE = Path("/root/sc-motif-open/R")
-WORK = Path("/root/autodl-tmp")
+SOURCE = Path(str(DATA_ROOT))
+WORK = Path(str(RUN_ROOT))
 FINAL = WORK / "final_analysis"
 OUTPUT = WORK / "nt_posthoc_heldout"
-OUTPUT.mkdir(parents=True, exist_ok=True)
-sys.path.insert(0, str(SOURCE))
-sys.path.insert(0, str(WORK))
 
-import train_nt_heads as base  # noqa: E402
-import train_nt_ia3 as ia3  # noqa: E402
+
+from scripts import train_nt_ia3 as ia3
+from scripts.training import train_nt_heads as base
 
 
 class WeightedCandidate(nn.Module):
@@ -64,7 +62,9 @@ def metrics_from_prediction(prediction_path: Path):
     prediction = np.load(prediction_path, mmap_mode="r")
     with open(base.TOTMAT_SHAPE) as handle:
         n_regions, n_bins = map(int, handle.read().split())
-    targets = np.memmap(base.TOTMAT_BIN, dtype="<f8", mode="r", shape=(n_regions, n_bins), order="F")
+    targets = np.memmap(
+        base.TOTMAT_BIN, dtype="<f8", mode="r", shape=(n_regions, n_bins), order="F"
+    )
     sse = np.zeros(20, dtype=np.float64)
     sum_y = np.zeros(20, dtype=np.float64)
     sum_y2 = np.zeros(20, dtype=np.float64)
@@ -94,10 +94,16 @@ def evaluate_weighted(batch_size: int):
         print((output / "metrics.json").read_text())
         return
     device = torch.device("cuda:0")
-    tokenizer = AutoTokenizer.from_pretrained(base.MODEL_PATH, trust_remote_code=True, local_files_only=True)
-    backbone = AutoModelForMaskedLM.from_pretrained(
+    tokenizer = AutoTokenizer.from_pretrained(
         base.MODEL_PATH, trust_remote_code=True, local_files_only=True
-    ).to(device).eval()
+    )
+    backbone = (
+        AutoModelForMaskedLM.from_pretrained(
+            base.MODEL_PATH, trust_remote_code=True, local_files_only=True
+        )
+        .to(device)
+        .eval()
+    )
     candidates = []
     for fold in range(1, 6):
         state = torch.load(
@@ -124,9 +130,10 @@ def evaluate_weighted(batch_size: int):
                 )
                 valid = encoded["attention_mask"].bool().clone()
                 valid[:, 0] = False
-                batch_prediction = sum(
-                    candidate(result.hidden_states, valid).float() for candidate in candidates
-                ) / 5.0
+                batch_prediction = (
+                    sum(candidate(result.hidden_states, valid).float() for candidate in candidates)
+                    / 5.0
+                )
             values = batch_prediction.cpu().numpy()
             predictions[offset : offset + len(values)] = values
             offset += len(values)
@@ -155,7 +162,9 @@ def evaluate_ia3_fold(fold: int, batch_size: int):
         print(f"IA3 fold {fold} already complete")
         return
     device = torch.device("cuda:0")
-    tokenizer = AutoTokenizer.from_pretrained(base.MODEL_PATH, trust_remote_code=True, local_files_only=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        base.MODEL_PATH, trust_remote_code=True, local_files_only=True
+    )
     nt = AutoModelForMaskedLM.from_pretrained(
         base.MODEL_PATH, trust_remote_code=True, local_files_only=True
     )
@@ -165,10 +174,7 @@ def evaluate_ia3_fold(fold: int, batch_size: int):
         map_location="cpu",
         weights_only=True,
     )
-    incompatible = model.load_state_dict(state, strict=False)
-    unexpected = list(incompatible.unexpected_keys)
-    if unexpected:
-        raise RuntimeError(f"Unexpected IA3 checkpoint keys: {unexpected}")
+    model.load_adapter(state)
     model.eval()
     indices, loader = heldout_loader(batch_size)
     prediction_path = output / "heldout_predictions_f32.npy"
@@ -219,7 +225,9 @@ def aggregate_ia3():
     )
     for start in range(0, arrays[0].shape[0], 100_000):
         stop = min(start + 100_000, arrays[0].shape[0])
-        ensemble[start:stop] = sum(np.asarray(array[start:stop], dtype=np.float64) for array in arrays) / 5.0
+        ensemble[start:stop] = (
+            sum(np.asarray(array[start:stop], dtype=np.float64) for array in arrays) / 5.0
+        )
     ensemble.flush()
     metrics = metrics_from_prediction(ensemble_path)
     metrics.update(

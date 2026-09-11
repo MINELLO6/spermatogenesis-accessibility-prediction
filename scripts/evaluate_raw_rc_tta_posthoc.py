@@ -9,7 +9,6 @@ with the pre-existing forward-orientation ensemble, and calculate metrics.
 import argparse
 import json
 import math
-import pickle
 from pathlib import Path
 
 import numpy as np
@@ -17,10 +16,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from developmental_accessibility.paths import DATA_ROOT, RUN_ROOT, WEIGHTS_ROOT
 
-ROOT = Path("/root/sc-motif-open/R")
-FINAL = Path("/root/autodl-tmp/final_analysis")
-OUTPUT = Path("/root/autodl-tmp/rc_tta_posthoc_heldout")
+ROOT = Path(str(DATA_ROOT))
+FINAL = Path(str(RUN_ROOT / "final_analysis"))
+OUTPUT = Path(str(RUN_ROOT / "rc_tta_posthoc_heldout"))
 
 
 class Block(nn.Module):
@@ -51,16 +51,12 @@ class Net(nn.Module):
         self.branch7 = branch(7)
         self.branch15 = branch(15)
         self.branch31 = branch(31)
-        self.project = nn.Sequential(
-            nn.Conv1d(192, 128, 1), nn.BatchNorm1d(128), nn.ReLU()
-        )
+        self.project = nn.Sequential(nn.Conv1d(192, 128, 1), nn.BatchNorm1d(128), nn.ReLU())
         self.blocks = nn.Sequential(*(Block(128, d) for d in (1, 2, 4, 8)))
         self.head = nn.Sequential(nn.Linear(256, 128), nn.ReLU(), nn.Linear(128, 20))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.project(
-            torch.cat((self.branch7(x), self.branch15(x), self.branch31(x)), dim=1)
-        )
+        x = self.project(torch.cat((self.branch7(x), self.branch15(x), self.branch31(x)), dim=1))
         x = self.blocks(x)
         return self.head(torch.cat((x.mean(2), x.max(2).values), dim=1))
 
@@ -99,7 +95,7 @@ def predict_fold(fold: int, batch_size: int) -> None:
         raise SystemExit(f"Refusing to overwrite {prediction_path}")
 
     device = torch.device("cuda:0")
-    checkpoint = FINAL / "github_weights" / "raw_rc" / f"raw_rc_fold{fold}.pt"
+    checkpoint = WEIGHTS_ROOT / "raw_rc" / f"raw_rc_fold{fold}.pt"
     model = Net().to(device)
     model.load_state_dict(torch.load(checkpoint, map_location="cpu", weights_only=True))
     model.eval()
@@ -191,7 +187,8 @@ def aggregate() -> None:
         "forward": forward_metrics,
         "reverse_complement": reverse_metrics,
         "forward_reverse_average": average_metrics,
-        "delta_mean_r2_average_minus_forward": average_metrics["mean_r2"] - forward_metrics["mean_r2"],
+        "delta_mean_r2_average_minus_forward": average_metrics["mean_r2"]
+        - forward_metrics["mean_r2"],
         "delta_rmse_average_minus_forward": average_metrics["rmse"] - forward_metrics["rmse"],
         "forward_reverse_mean_absolute_difference": direction_abs_sum / n_values,
         "forward_reverse_rmse": math.sqrt(direction_sq_sum / n_values),

@@ -36,9 +36,7 @@ class RawMultiScaleResCNN(nn.Module):
         self.branch7 = branch(7)
         self.branch15 = branch(15)
         self.branch31 = branch(31)
-        self.project = nn.Sequential(
-            nn.Conv1d(192, 128, 1), nn.BatchNorm1d(128), nn.ReLU()
-        )
+        self.project = nn.Sequential(nn.Conv1d(192, 128, 1), nn.BatchNorm1d(128), nn.ReLU())
         self.blocks = nn.Sequential(
             *(DilatedResidualBlock(128, dilation) for dilation in (1, 2, 4, 8))
         )
@@ -76,3 +74,143 @@ class FrozenNucleotideTransformerHead(nn.Module):
         maximum_pool = x.masked_fill(~mask.unsqueeze(-1), -1e4).max(dim=1).values
         return self.head(torch.cat((attention_pool, maximum_pool), dim=-1))
 
+
+class MotifTokenEncoder(nn.Module):
+    def __init__(self, d_model=128, use_position=True):
+
+        super().__init__()
+
+        self.use_position = use_position
+
+        # 0 = padding
+        # motif IDs: 1..1443
+        self.motif_emb = nn.Embedding(1444, d_model, padding_idx=0)
+
+        # 0 = padding
+        # bins 1..10
+        self.pos_emb = nn.Embedding(11, d_model, padding_idx=0)
+
+        self.score_mlp = nn.Sequential(
+            nn.Linear(1, d_model), nn.GELU(), nn.Linear(d_model, d_model)
+        )
+
+        self.norm = nn.LayerNorm(d_model)
+
+    def forward(self, motif, pos, score, mask):
+
+        x = self.motif_emb(motif)
+
+        if self.use_position:
+            x = x + self.pos_emb(pos)
+
+        x = x + self.score_mlp(score.unsqueeze(-1))
+
+        x = self.norm(x)
+
+        x = x * mask.unsqueeze(-1)
+
+        return x
+
+
+class MotifBagMLP(nn.Module):
+    def __init__(self, d_model=128):
+
+        super().__init__()
+
+        self.encoder = MotifTokenEncoder(d_model=d_model, use_position=True)
+
+        self.head = nn.Sequential(
+            nn.Linear(d_model * 2, d_model), nn.GELU(), nn.Dropout(0.1), nn.Linear(d_model, 20)
+        )
+
+    def forward(self, motif, pos, score, mask):
+
+        x = self.encoder(motif, pos, score, mask)
+
+        m = mask.unsqueeze(-1)
+
+        # mean
+        denom = m.sum(dim=1).clamp(min=1)
+
+        mean_pool = (x * m).sum(dim=1) / denom
+
+        # max
+        max_x = x.masked_fill(~m, -1e9)
+
+        max_pool = max_x.max(dim=1).values
+
+        empty = mask.sum(dim=1) == 0
+
+        max_pool[empty] = 0
+
+        z = torch.cat([mean_pool, max_pool], dim=-1)
+
+        return self.head(z)
+
+
+class MotifTransformer(nn.Module):
+    def __init__(self, d_model=128, n_heads=4, n_layers=4, ff_dim=512, dropout=0.1):
+
+        super().__init__()
+
+        self.token_encoder = MotifTokenEncoder(d_model=d_model, use_position=True)
+
+        self.region_token = nn.Parameter(torch.zeros(1, 1, d_model))
+
+        nn.init.normal_(self.region_token, std=0.02)
+
+        layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=ff_dim,
+            dropout=dropout,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+
+        self.transformer = nn.TransformerEncoder(layer, num_layers=n_layers)
+
+        self.final_norm = nn.LayerNorm(d_model)
+
+        self.head = nn.Sequential(
+            nn.Linear(d_model * 3, d_model), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_model, 20)
+        )
+
+    def forward(self, motif, pos, score, mask):
+
+        x = self.token_encoder(motif, pos, score, mask)
+
+        B = x.shape[0]
+
+        cls = self.region_token.expand(B, -1, -1)
+
+        x = torch.cat([cls, x], dim=1)
+
+        cls_mask = torch.ones(B, 1, dtype=torch.bool, device=mask.device)
+
+        full_mask = torch.cat([cls_mask, mask], dim=1)
+
+        x = self.transformer(x, src_key_padding_mask=~full_mask)
+
+        x = self.final_norm(x)
+
+        cls_out = x[:, 0]
+
+        token_x = x[:, 1:]
+
+        m = mask.unsqueeze(-1)
+
+        denom = m.sum(dim=1).clamp(min=1)
+
+        mean_pool = (token_x * m).sum(dim=1) / denom
+
+        max_pool = token_x.masked_fill(~m, -1e9).max(dim=1).values
+
+        empty = mask.sum(dim=1) == 0
+
+        max_pool[empty] = 0
+
+        z = torch.cat([cls_out, mean_pool, max_pool], dim=-1)
+
+        return self.head(z)

@@ -1,26 +1,23 @@
-
-import os
-import re
+import argparse
 import math
 import pickle
 import random
-import argparse
+import re
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModelForMaskedLM
-
+from torch.utils.data import DataLoader, Dataset
+from transformers import AutoModelForMaskedLM, AutoTokenizer
 
 # ============================================================
 # Paths
 # ============================================================
+from developmental_accessibility.paths import DATA_ROOT, RUN_ROOT
 
-ROOT = Path("/root/sc-motif-open/R")
+ROOT = Path(str(DATA_ROOT))
 
 FULLSEQS = ROOT / "fullseqs.txt"
 
@@ -29,19 +26,17 @@ TOTMAT_SHAPE = ROOT / "totmat_shape.txt"
 
 FOLDS_FILE = ROOT / "folds.pkl"
 
-RESULT_DIR = ROOT / "results"
-RESULT_DIR.mkdir(exist_ok=True)
+RESULT_DIR = RUN_ROOT / "results"
 
-MODEL_PATH = Path(
-    "/root/.cache/huggingface/hub/"
-    "models--InstaDeepAI--nucleotide-transformer-v2-50m-multi-species/"
-    "snapshots/81b29e5786726d891dbf929404ef20adca5b36f1"
-)
+from developmental_accessibility.paths import NT_MODEL_PATH
+
+MODEL_PATH = NT_MODEL_PATH
 
 
 # ============================================================
 # Utils
 # ============================================================
+
 
 def set_seed(seed):
     random.seed(seed)
@@ -67,7 +62,6 @@ def load_folds(path, fold):
     entry = obj[fold]
 
     if isinstance(entry, dict):
-
         if "train_idx" in entry:
             train_idx = entry["train_idx"]
         else:
@@ -81,23 +75,17 @@ def load_folds(path, fold):
     else:
         train_idx, val_idx = entry
 
-    return (
-        np.asarray(train_idx, dtype=np.int64),
-        np.asarray(val_idx, dtype=np.int64)
-    )
+    return (np.asarray(train_idx, dtype=np.int64), np.asarray(val_idx, dtype=np.int64))
 
 
 # ============================================================
 # Dataset
 # ============================================================
 
-class IndexDataset(Dataset):
 
+class IndexDataset(Dataset):
     def __init__(self, indices):
-        self.indices = np.asarray(
-            indices,
-            dtype=np.int64
-        )
+        self.indices = np.asarray(indices, dtype=np.int64)
 
     def __len__(self):
         return len(self.indices)
@@ -107,119 +95,56 @@ class IndexDataset(Dataset):
 
 
 class SequenceCollator:
-
     def __init__(self):
 
-        n_peaks, n_bins = read_shape(
-            TOTMAT_SHAPE
-        )
+        n_peaks, n_bins = read_shape(TOTMAT_SHAPE)
 
         self.n_peaks = n_peaks
 
-        self.fullseqs = np.memmap(
-            FULLSEQS,
-            dtype="S202",
-            mode="r",
-            shape=(n_peaks,)
-        )
+        self.fullseqs = np.memmap(FULLSEQS, dtype="S202", mode="r", shape=(n_peaks,))
 
         self.totmat = np.memmap(
-            TOTMAT_BIN,
-            dtype="<f8",
-            mode="r",
-            shape=(n_peaks, n_bins),
-            order="F"
+            TOTMAT_BIN, dtype="<f8", mode="r", shape=(n_peaks, n_bins), order="F"
         )
 
     def __call__(self, ids):
 
-        ids = np.asarray(
-            ids,
-            dtype=np.int64
-        )
+        ids = np.asarray(ids, dtype=np.int64)
 
-        seqs = [
-            self.fullseqs[i]
-                .decode("ascii")
-                .strip()
-            for i in ids
-        ]
+        seqs = [self.fullseqs[i].decode("ascii").strip() for i in ids]
 
-        y = np.asarray(
-            self.totmat[ids, :],
-            dtype=np.float32
-        )
+        y = np.asarray(self.totmat[ids, :], dtype=np.float32)
 
-        return (
-            seqs,
-            torch.from_numpy(y)
-        )
+        return (seqs, torch.from_numpy(y))
 
 
 # ============================================================
 # Attention Pooling
 # ============================================================
 
-class AttentionPoolingHead(nn.Module):
 
-    def __init__(
-        self,
-        input_dim=512,
-        hidden_dim=256,
-        dropout=0.1
-    ):
+class AttentionPoolingHead(nn.Module):
+    def __init__(self, input_dim=512, hidden_dim=256, dropout=0.1):
 
         super().__init__()
 
         self.proj = nn.Sequential(
-            nn.Linear(
-                input_dim,
-                hidden_dim
-            ),
-            nn.GELU(),
-            nn.LayerNorm(
-                hidden_dim
-            )
+            nn.Linear(input_dim, hidden_dim), nn.GELU(), nn.LayerNorm(hidden_dim)
         )
 
-        self.attn = nn.Sequential(
-            nn.Linear(
-                hidden_dim,
-                128
-            ),
-            nn.Tanh(),
-            nn.Linear(
-                128,
-                1
-            )
-        )
+        self.attn = nn.Sequential(nn.Linear(hidden_dim, 128), nn.Tanh(), nn.Linear(128, 1))
 
         self.head = nn.Sequential(
-            nn.Linear(
-                hidden_dim * 2,
-                256
-            ),
+            nn.Linear(hidden_dim * 2, 256),
             nn.GELU(),
             nn.Dropout(dropout),
-
-            nn.Linear(
-                256,
-                128
-            ),
+            nn.Linear(256, 128),
             nn.GELU(),
             nn.Dropout(dropout),
-
-            nn.Linear(
-                128,
-                20
-            )
+            nn.Linear(128, 20),
         )
 
-    def forward(
-        self,
-        x,
-        mask
-    ):
+    def forward(self, x, mask):
 
         # x:
         # B x L x 512
@@ -229,38 +154,16 @@ class AttentionPoolingHead(nn.Module):
         # learned attention score
         score = self.attn(x).squeeze(-1)
 
-        score = score.masked_fill(
-            ~mask,
-            -1e4
-        )
+        score = score.masked_fill(~mask, -1e4)
 
-        weights = torch.softmax(
-            score,
-            dim=1
-        )
+        weights = torch.softmax(score, dim=1)
 
-        attn_pool = torch.sum(
-            x * weights.unsqueeze(-1),
-            dim=1
-        )
+        attn_pool = torch.sum(x * weights.unsqueeze(-1), dim=1)
 
         # Max pooling gives strong local signal
-        max_pool = (
-            x.masked_fill(
-                ~mask.unsqueeze(-1),
-                -1e4
-            )
-            .max(dim=1)
-            .values
-        )
+        max_pool = x.masked_fill(~mask.unsqueeze(-1), -1e4).max(dim=1).values
 
-        z = torch.cat(
-            [
-                attn_pool,
-                max_pool
-            ],
-            dim=-1
-        )
+        z = torch.cat([attn_pool, max_pool], dim=-1)
 
         return self.head(z)
 
@@ -269,42 +172,17 @@ class AttentionPoolingHead(nn.Module):
 # Small Transformer Head
 # ============================================================
 
-class SmallTransformerHead(nn.Module):
 
-    def __init__(
-        self,
-        input_dim=512,
-        d_model=128,
-        n_heads=4,
-        n_layers=2,
-        ff_dim=512,
-        dropout=0.1
-    ):
+class SmallTransformerHead(nn.Module):
+    def __init__(self, input_dim=512, d_model=128, n_heads=4, n_layers=2, ff_dim=512, dropout=0.1):
 
         super().__init__()
 
-        self.proj = nn.Sequential(
-            nn.Linear(
-                input_dim,
-                d_model
-            ),
-            nn.LayerNorm(
-                d_model
-            )
-        )
+        self.proj = nn.Sequential(nn.Linear(input_dim, d_model), nn.LayerNorm(d_model))
 
-        self.region_token = nn.Parameter(
-            torch.zeros(
-                1,
-                1,
-                d_model
-            )
-        )
+        self.region_token = nn.Parameter(torch.zeros(1, 1, d_model))
 
-        nn.init.normal_(
-            self.region_token,
-            std=0.02
-        )
+        nn.init.normal_(self.region_token, std=0.02)
 
         layer = nn.TransformerEncoderLayer(
             d_model=d_model,
@@ -313,89 +191,39 @@ class SmallTransformerHead(nn.Module):
             dropout=dropout,
             activation="gelu",
             batch_first=True,
-            norm_first=True
+            norm_first=True,
         )
 
-        self.transformer = (
-            nn.TransformerEncoder(
-                layer,
-                num_layers=n_layers
-            )
-        )
+        self.transformer = nn.TransformerEncoder(layer, num_layers=n_layers)
 
-        self.norm = nn.LayerNorm(
-            d_model
-        )
+        self.norm = nn.LayerNorm(d_model)
 
-        self.attn_pool = nn.Sequential(
-            nn.Linear(
-                d_model,
-                64
-            ),
-            nn.Tanh(),
-            nn.Linear(
-                64,
-                1
-            )
-        )
+        self.attn_pool = nn.Sequential(nn.Linear(d_model, 64), nn.Tanh(), nn.Linear(64, 1))
 
         self.head = nn.Sequential(
-            nn.Linear(
-                d_model * 2,
-                256
-            ),
+            nn.Linear(d_model * 2, 256),
             nn.GELU(),
             nn.Dropout(dropout),
-
-            nn.Linear(
-                256,
-                128
-            ),
+            nn.Linear(256, 128),
             nn.GELU(),
-
-            nn.Linear(
-                128,
-                20
-            )
+            nn.Linear(128, 20),
         )
 
-    def forward(
-        self,
-        x,
-        mask
-    ):
+    def forward(self, x, mask):
 
         x = self.proj(x)
 
         B = x.shape[0]
 
-        cls = self.region_token.expand(
-            B,
-            1,
-            -1
-        )
+        cls = self.region_token.expand(B, 1, -1)
 
-        x = torch.cat(
-            [cls, x],
-            dim=1
-        )
+        x = torch.cat([cls, x], dim=1)
 
-        cls_mask = torch.ones(
-            B,
-            1,
-            dtype=torch.bool,
-            device=x.device
-        )
+        cls_mask = torch.ones(B, 1, dtype=torch.bool, device=x.device)
 
-        full_mask = torch.cat(
-            [cls_mask, mask],
-            dim=1
-        )
+        full_mask = torch.cat([cls_mask, mask], dim=1)
 
-        x = self.transformer(
-            x,
-            src_key_padding_mask=~full_mask
-        )
+        x = self.transformer(x, src_key_padding_mask=~full_mask)
 
         x = self.norm(x)
 
@@ -403,34 +231,15 @@ class SmallTransformerHead(nn.Module):
 
         token_x = x[:, 1:]
 
-        scores = (
-            self.attn_pool(token_x)
-            .squeeze(-1)
-        )
+        scores = self.attn_pool(token_x).squeeze(-1)
 
-        scores = scores.masked_fill(
-            ~mask,
-            -1e4
-        )
+        scores = scores.masked_fill(~mask, -1e4)
 
-        weights = torch.softmax(
-            scores,
-            dim=1
-        )
+        weights = torch.softmax(scores, dim=1)
 
-        pooled = torch.sum(
-            token_x
-            * weights.unsqueeze(-1),
-            dim=1
-        )
+        pooled = torch.sum(token_x * weights.unsqueeze(-1), dim=1)
 
-        z = torch.cat(
-            [
-                region_repr,
-                pooled
-            ],
-            dim=-1
-        )
+        z = torch.cat([region_repr, pooled], dim=-1)
 
         return self.head(z)
 
@@ -439,13 +248,9 @@ class SmallTransformerHead(nn.Module):
 # Full model
 # ============================================================
 
-class NTRegressor(nn.Module):
 
-    def __init__(
-        self,
-        nt_model,
-        head_type
-    ):
+class NTRegressor(nn.Module):
+    def __init__(self, nt_model, head_type):
 
         super().__init__()
 
@@ -458,11 +263,9 @@ class NTRegressor(nn.Module):
         self.nt.eval()
 
         if head_type == "attnpool":
-
             self.head = AttentionPoolingHead()
 
         elif head_type == "smalltx":
-
             self.head = SmallTransformerHead()
 
         else:
@@ -477,22 +280,16 @@ class NTRegressor(nn.Module):
 
         return self
 
-    def forward(
-        self,
-        input_ids,
-        attention_mask,
-        special_tokens_mask
-    ):
+    def forward(self, input_ids, attention_mask, special_tokens_mask):
 
         # IMPORTANT:
         # use no_grad, NOT inference_mode
         with torch.no_grad():
-
             out = self.nt(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 output_hidden_states=True,
-                return_dict=True
+                return_dict=True,
             )
 
             x = out.hidden_states[-1]
@@ -504,251 +301,117 @@ class NTRegressor(nn.Module):
         valid_mask = attention_mask.bool().clone()
         valid_mask[:, 0] = False
 
-        return self.head(
-            x,
-            valid_mask
-        )
+        return self.head(x, valid_mask)
 
 
 # ============================================================
 # Tokenization
 # ============================================================
 
-def tokenize_batch(
-    tokenizer,
-    seqs,
-    device
-):
+
+def tokenize_batch(tokenizer, seqs, device):
 
     enc = tokenizer(
-        seqs,
-        padding=True,
-        truncation=True,
-        return_tensors="pt",
-        return_special_tokens_mask=True
+        seqs, padding=True, truncation=True, return_tensors="pt", return_special_tokens_mask=True
     )
 
-    return {
-        k: v.to(
-            device,
-            non_blocking=True
-        )
-        for k, v in enc.items()
-    }
+    return {k: v.to(device, non_blocking=True) for k, v in enc.items()}
 
 
 # ============================================================
 # Evaluation
 # ============================================================
 
+
 @torch.no_grad()
-def evaluate(
-    model,
-    loader,
-    tokenizer,
-    device
-):
+def evaluate(model, loader, tokenizer, device):
 
     model.eval()
 
     n = 0
 
-    sse = np.zeros(
-        20,
-        dtype=np.float64
-    )
+    sse = np.zeros(20, dtype=np.float64)
 
-    sum_y = np.zeros(
-        20,
-        dtype=np.float64
-    )
+    sum_y = np.zeros(20, dtype=np.float64)
 
-    sum_y2 = np.zeros(
-        20,
-        dtype=np.float64
-    )
+    sum_y2 = np.zeros(20, dtype=np.float64)
 
     for seqs, y in loader:
+        y = y.to(device, non_blocking=True)
 
-        y = y.to(
-            device,
-            non_blocking=True
-        )
+        enc = tokenize_batch(tokenizer, seqs, device)
 
-        enc = tokenize_batch(
-            tokenizer,
-            seqs,
-            device
-        )
-
-        with torch.autocast(
-            device_type="cuda",
-            dtype=torch.bfloat16
-        ):
-
-            pred = model(
-                enc["input_ids"],
-                enc["attention_mask"],
-                enc["special_tokens_mask"]
-            )
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            pred = model(enc["input_ids"], enc["attention_mask"], enc["special_tokens_mask"])
 
         pred = pred.float()
 
         diff = pred - y
 
-        sse += (
-            (diff ** 2)
-            .sum(dim=0)
-            .cpu()
-            .numpy()
-        )
+        sse += (diff**2).sum(dim=0).cpu().numpy()
 
-        sum_y += (
-            y.sum(dim=0)
-            .cpu()
-            .numpy()
-        )
+        sum_y += y.sum(dim=0).cpu().numpy()
 
-        sum_y2 += (
-            (y ** 2)
-            .sum(dim=0)
-            .cpu()
-            .numpy()
-        )
+        sum_y2 += (y**2).sum(dim=0).cpu().numpy()
 
         n += y.shape[0]
 
-    sst = (
-        sum_y2
-        - (sum_y ** 2) / n
-    )
+    sst = sum_y2 - (sum_y**2) / n
 
-    r2_bins = (
-        1.0
-        - sse / sst
-    )
+    r2_bins = 1.0 - sse / sst
 
-    mse = (
-        sse.sum()
-        / (n * 20)
-    )
+    mse = sse.sum() / (n * 20)
 
-    rmse = math.sqrt(
-        mse
-    )
+    rmse = math.sqrt(mse)
 
-    return {
-        "mse": mse,
-        "rmse": rmse,
-        "mean_r2": float(
-            r2_bins.mean()
-        ),
-        "r2_bins": r2_bins
-    }
+    return {"mse": mse, "rmse": rmse, "mean_r2": float(r2_bins.mean()), "r2_bins": r2_bins}
 
 
 # ============================================================
 # Train
 # ============================================================
 
-def train_one(
-    fold,
-    head_type,
-    epochs,
-    patience,
-    batch_size
-):
 
-    set_seed(
-        42 + fold
-    )
+def train_one(fold, head_type, epochs, patience, batch_size):
+
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    set_seed(42 + fold)
 
     device = torch.device("cuda:0")
 
-    print(
-        "Device:",
-        device,
-        flush=True
+    print("Device:", device, flush=True)
+
+    print("GPU:", torch.cuda.get_device_name(0), flush=True)
+
+    print("Loading tokenizer...", flush=True)
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_PATH, trust_remote_code=True, local_files_only=True
     )
 
-    print(
-        "GPU:",
-        torch.cuda.get_device_name(0),
-        flush=True
+    print("Loading NT model...", flush=True)
+
+    nt_model = AutoModelForMaskedLM.from_pretrained(
+        MODEL_PATH, trust_remote_code=True, local_files_only=True
     )
 
-    print(
-        "Loading tokenizer...",
-        flush=True
-    )
+    model = NTRegressor(nt_model, head_type).to(device)
 
-    tokenizer = (
-        AutoTokenizer.from_pretrained(
-            MODEL_PATH,
-            trust_remote_code=True,
-            local_files_only=True
-        )
-    )
+    train_idx, val_idx = load_folds(FOLDS_FILE, fold)
 
-    print(
-        "Loading NT model...",
-        flush=True
-    )
+    print(f"\nFold {fold + 1}", flush=True)
 
-    nt_model = (
-        AutoModelForMaskedLM
-        .from_pretrained(
-            MODEL_PATH,
-            trust_remote_code=True,
-            local_files_only=True
-        )
-    )
+    print(f"Train: {len(train_idx):,}", flush=True)
 
-    model = NTRegressor(
-        nt_model,
-        head_type
-    ).to(device)
+    print(f"Val:   {len(val_idx):,}", flush=True)
 
-    train_idx, val_idx = load_folds(
-        FOLDS_FILE,
-        fold
-    )
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    print(
-        f"\nFold {fold + 1}",
-        flush=True
-    )
+    print(f"Head: {head_type}", flush=True)
 
-    print(
-        f"Train: {len(train_idx):,}",
-        flush=True
-    )
+    print(f"Trainable parameters: {trainable:,}", flush=True)
 
-    print(
-        f"Val:   {len(val_idx):,}",
-        flush=True
-    )
-
-    trainable = sum(
-        p.numel()
-        for p in model.parameters()
-        if p.requires_grad
-    )
-
-    print(
-        f"Head: {head_type}",
-        flush=True
-    )
-
-    print(
-        f"Trainable parameters: {trainable:,}",
-        flush=True
-    )
-
-    print(
-        f"Batch size: {batch_size}",
-        flush=True
-    )
+    print(f"Batch size: {batch_size}", flush=True)
 
     collator_train = SequenceCollator()
     collator_val = SequenceCollator()
@@ -761,7 +424,7 @@ def train_one(
         pin_memory=True,
         persistent_workers=True,
         prefetch_factor=2,
-        collate_fn=collator_train
+        collate_fn=collator_train,
     )
 
     val_loader = DataLoader(
@@ -772,121 +435,66 @@ def train_one(
         pin_memory=True,
         persistent_workers=True,
         prefetch_factor=2,
-        collate_fn=collator_val
+        collate_fn=collator_val,
     )
 
-    optimizer = torch.optim.AdamW(
-        model.head.parameters(),
-        lr=3e-4,
-        weight_decay=1e-4
-    )
+    optimizer = torch.optim.AdamW(model.head.parameters(), lr=3e-4, weight_decay=1e-4)
 
-    scheduler = (
-        torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=0.5,
-            patience=2
-        )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.5, patience=2
     )
 
     best_mse = float("inf")
     best_epoch = 0
     wait = 0
 
-    ckpt = (
-        RESULT_DIR
-        / f"nt_{head_type}_fold{fold + 1}.pt"
-    )
+    ckpt = RESULT_DIR / f"nt_{head_type}_fold{fold + 1}.pt"
 
-    for epoch in range(
-        1,
-        epochs + 1
-    ):
-
+    for epoch in range(1, epochs + 1):
         model.train()
 
         total_loss = 0.0
         total_n = 0
 
-        for step, (seqs, y) in enumerate(
-            train_loader,
-            1
-        ):
+        for step, (seqs, y) in enumerate(train_loader, 1):
+            y = y.to(device, non_blocking=True)
 
-            y = y.to(
-                device,
-                non_blocking=True
-            )
+            enc = tokenize_batch(tokenizer, seqs, device)
 
-            enc = tokenize_batch(
-                tokenizer,
-                seqs,
-                device
-            )
+            optimizer.zero_grad(set_to_none=True)
 
-            optimizer.zero_grad(
-                set_to_none=True
-            )
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                pred = model(enc["input_ids"], enc["attention_mask"], enc["special_tokens_mask"])
 
-            with torch.autocast(
-                device_type="cuda",
-                dtype=torch.bfloat16
-            ):
-
-                pred = model(
-                    enc["input_ids"],
-                    enc["attention_mask"],
-                    enc["special_tokens_mask"]
-                )
-
-                loss = F.mse_loss(
-                    pred.float(),
-                    y
-                )
+                loss = F.mse_loss(pred.float(), y)
 
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(
-                model.head.parameters(),
-                5.0
-            )
+            torch.nn.utils.clip_grad_norm_(model.head.parameters(), 5.0)
 
             optimizer.step()
 
             B = y.shape[0]
 
-            total_loss += (
-                loss.item() * B
-            )
+            total_loss += loss.item() * B
 
             total_n += B
 
             # show progress every 500 batches
             if step % 500 == 0:
-
                 print(
                     f"Epoch {epoch:02d} | "
                     f"step {step:04d}/{len(train_loader)} | "
                     f"Train MSE "
                     f"{total_loss / total_n:.2f}",
-                    flush=True
+                    flush=True,
                 )
 
-        train_mse = (
-            total_loss / total_n
-        )
+        train_mse = total_loss / total_n
 
-        metrics = evaluate(
-            model,
-            val_loader,
-            tokenizer,
-            device
-        )
+        metrics = evaluate(model, val_loader, tokenizer, device)
 
-        scheduler.step(
-            metrics["mse"]
-        )
+        scheduler.step(metrics["mse"])
 
         print(
             f"\nEpoch {epoch:02d} DONE | "
@@ -894,30 +502,21 @@ def train_one(
             f"Val MSE {metrics['mse']:.2f} | "
             f"RMSE {metrics['rmse']:.2f} | "
             f"Mean R² {metrics['mean_r2']:.4f}\n",
-            flush=True
+            flush=True,
         )
 
         if metrics["mse"] < best_mse:
-
             best_mse = metrics["mse"]
             best_epoch = epoch
             wait = 0
 
-            torch.save(
-                model.head.state_dict(),
-                ckpt
-            )
+            torch.save(model.head.state_dict(), ckpt)
 
         else:
-
             wait += 1
 
             if wait >= patience:
-
-                print(
-                    "Early stopping.",
-                    flush=True
-                )
+                print("Early stopping.", flush=True)
 
                 break
 
@@ -925,71 +524,38 @@ def train_one(
     # Reload best head
     # ========================================================
 
-    model.head.load_state_dict(
-        torch.load(
-            ckpt,
-            map_location=device,
-            weights_only=True
-        )
-    )
+    model.head.load_state_dict(torch.load(ckpt, map_location=device, weights_only=True))
 
-    final = evaluate(
-        model,
-        val_loader,
-        tokenizer,
-        device
-    )
+    final = evaluate(model, val_loader, tokenizer, device)
 
     np.savez(
-        RESULT_DIR
-        / f"nt_{head_type}_fold{fold + 1}.npz",
-
+        RESULT_DIR / f"nt_{head_type}_fold{fold + 1}.npz",
         mse=final["mse"],
         rmse=final["rmse"],
         mean_r2=final["mean_r2"],
         r2_bins=final["r2_bins"],
-        best_epoch=best_epoch
+        best_epoch=best_epoch,
     )
 
-    print(
-        "\n============================",
-        flush=True
-    )
+    print("\n============================", flush=True)
 
-    print(
-        f"NT {head_type} Fold {fold + 1}",
-        flush=True
-    )
+    print(f"NT {head_type} Fold {fold + 1}", flush=True)
 
-    print(
-        f"Best epoch = {best_epoch}",
-        flush=True
-    )
+    print(f"Best epoch = {best_epoch}", flush=True)
 
-    print(
-        f"MSE = {final['mse']:.2f}",
-        flush=True
-    )
+    print(f"MSE = {final['mse']:.2f}", flush=True)
 
-    print(
-        f"RMSE = {final['rmse']:.2f}",
-        flush=True
-    )
+    print(f"RMSE = {final['rmse']:.2f}", flush=True)
 
-    print(
-        f"Mean R² = {final['mean_r2']:.4f}",
-        flush=True
-    )
+    print(f"Mean R² = {final['mean_r2']:.4f}", flush=True)
 
-    print(
-        "============================",
-        flush=True
-    )
+    print("============================", flush=True)
 
 
 # ============================================================
 # Summary
 # ============================================================
+
 
 def summary(head_type):
 
@@ -1000,31 +566,17 @@ def summary(head_type):
     epochs = []
 
     for fold in range(1, 6):
+        x = np.load(RESULT_DIR / f"nt_{head_type}_fold{fold}.npz")
 
-        x = np.load(
-            RESULT_DIR
-            / f"nt_{head_type}_fold{fold}.npz"
-        )
+        r2.append(float(x["mean_r2"]))
 
-        r2.append(
-            float(x["mean_r2"])
-        )
+        rmse.append(float(x["rmse"]))
 
-        rmse.append(
-            float(x["rmse"])
-        )
+        mse.append(float(x["mse"]))
 
-        mse.append(
-            float(x["mse"])
-        )
+        bins.append(x["r2_bins"])
 
-        bins.append(
-            x["r2_bins"]
-        )
-
-        epochs.append(
-            int(x["best_epoch"])
-        )
+        epochs.append(int(x["best_epoch"]))
 
         print(
             f"Fold {fold} | "
@@ -1034,39 +586,20 @@ def summary(head_type):
             f"Mean R² {r2[-1]:.4f}"
         )
 
-    print(
-        f"\n===== NT {head_type} ====="
-    )
+    print(f"\n===== NT {head_type} =====")
 
-    print(
-        f"Mean R² = "
-        f"{np.mean(r2):.4f} ± "
-        f"{np.std(r2):.4f}"
-    )
+    print(f"Mean R² = {np.mean(r2):.4f} ± {np.std(r2, ddof=1):.4f}")
 
-    print(
-        f"RMSE = "
-        f"{np.mean(rmse):.2f} ± "
-        f"{np.std(rmse):.2f}"
-    )
+    print(f"RMSE = {np.mean(rmse):.2f} ± {np.std(rmse, ddof=1):.2f}")
 
-    print(
-        f"MSE = "
-        f"{np.mean(mse):.2f} ± "
-        f"{np.std(mse):.2f}"
-    )
+    print(f"MSE = {np.mean(mse):.2f} ± {np.std(mse, ddof=1):.2f}")
 
     bins = np.asarray(bins)
 
     print("\nPer-bin R²:")
 
     for i in range(20):
-
-        print(
-            f"Bin {i+1:02d}: "
-            f"{bins[:, i].mean():.4f} ± "
-            f"{bins[:, i].std():.4f}"
-        )
+        print(f"Bin {i + 1:02d}: {bins[:, i].mean():.4f} ± {bins[:, i].std(ddof=1):.4f}")
 
 
 # ============================================================
@@ -1074,60 +607,34 @@ def summary(head_type):
 # ============================================================
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--fold",
-        type=int
-    )
+    parser.add_argument("--fold", type=int, choices=range(5))
 
-    parser.add_argument(
-        "--head",
-        choices=[
-            "attnpool",
-            "smalltx"
-        ],
-        default="attnpool"
-    )
+    parser.add_argument("--head", choices=["attnpool", "smalltx"], default="attnpool")
 
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=25
-    )
+    parser.add_argument("--epochs", type=int, default=25)
 
-    parser.add_argument(
-        "--patience",
-        type=int,
-        default=5
-    )
+    parser.add_argument("--patience", type=int, default=5)
 
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=1024
-    )
+    parser.add_argument("--batch-size", type=int, default=1024)
 
-    parser.add_argument(
-        "--summary",
-        action="store_true"
-    )
+    parser.add_argument("--summary", action="store_true")
 
     args = parser.parse_args()
+    if not args.summary and args.fold is None:
+        parser.error("--fold is required for training")
+    if min(args.epochs, args.patience, args.batch_size) < 1:
+        parser.error("epochs, patience and batch-size must be positive")
 
     if args.summary:
-
-        summary(
-            args.head
-        )
+        summary(args.head)
 
     else:
-
         train_one(
             fold=args.fold,
             head_type=args.head,
             epochs=args.epochs,
             patience=args.patience,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
         )
