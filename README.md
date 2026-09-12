@@ -92,6 +92,46 @@ The validator checks array byte sizes, sequence record boundaries, finite target
 all five train/validation partitions, and, with `--check-groups`, genomic-group
 separation. It does not replace provenance checks on the biological inputs.
 
+### Download the Nucleotide Transformer once
+
+After installing the package, download the recorded snapshot with:
+
+```bash
+python -m scripts.download_nt_model
+python -m scripts.download_nt_model --check-only
+```
+
+The destination follows `ACCESSIBILITY_NT_PATH`, or defaults to
+`models/nucleotide-transformer-v2-50m/`. For a different location:
+
+```bash
+python -m scripts.download_nt_model --output-dir /path/to/nt-v2-50m
+export ACCESSIBILITY_NT_PATH=/path/to/nt-v2-50m
+python -m scripts.download_nt_model --check-only
+python -m scripts.training.train_nt_heads --head attnpool --fold 0
+```
+
+The downloader pins revision `81b29e5786726d891dbf929404ef20adca5b36f1` of
+[the InstaDeepAI NT-v2-50M multispecies model](https://huggingface.co/InstaDeepAI/nucleotide-transformer-v2-50m-multi-species).
+It retrieves the tokenizer, configuration, custom Python modules, and Safetensors
+weights, excluding the duplicate PyTorch weights and JAX checkpoint. It records
+the requested version and completion status in `accessibility_snapshot.json`.
+An interrupted download can be rerun. An existing unrecorded model directory is
+left untouched: use a new directory for this helper, or continue using your
+existing cache directly with the training scripts.
+
+`--check-only` checks the record, required nonempty files, and core model
+dimensions offline; it does not load the weights or prove their numerical
+integrity. The downloader itself does not execute the model's custom code.
+Training uses `AutoTokenizer` and `AutoModelForMaskedLM` with
+`trust_remote_code=True` and `local_files_only=True`. Missing local files therefore
+cause a failure rather than a different checkpoint being downloaded silently.
+The regression head consumes token hidden states, not vocabulary logits, and
+pooling excludes padding and the leading classification token. Frozen-feature
+training uses `no_grad()` for the backbone; IA3 keeps the encoder gradient path
+while freezing its original weights. Respect the upstream model's
+CC-BY-NC-SA-4.0 licence when reusing it.
+
 ## Model entry points
 
 Training fold arguments are zero-based (0–4). Each command accepts `--help`.
